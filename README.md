@@ -1,1 +1,1 @@
-1. JOIN
+learning sql from rookie
