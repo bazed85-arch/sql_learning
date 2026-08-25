@@ -192,28 +192,101 @@ on their own. Applying one behaviour uniformly is the mistake.
 
 ---
 
+### 8. `deliveries` — delivery events
+ 
+| Column | Type | Constraints | Comment |
+|---|---|---|---|
+| `id` | `bigint` | PK, generated always as identity | |
+| `supplier_id` | `bigint` | `NOT NULL`, FK → `suppliers.id`, `ON DELETE RESTRICT` | Who delivered. A supplier exists independently of any delivery |
+| `delivery_note_number` | `text` | `NOT NULL` | The supplier's own document number |
+| `delivery_date` | `date` | `NOT NULL` | Goods receipt is a calendar fact, not an instant |
+| `status` | `text` | `NOT NULL`, `CHECK (status IN ('draft','received','received_with_issues','rejected'))` | State of the document, not a calculation |
+| `notes` | `text` | nullable | |
+| `created_at` | `timestamptz` | `NOT NULL DEFAULT now()` | When the row entered the system |
+ 
+Additional constraint: `UNIQUE (supplier_id, delivery_note_number)`.
+ 
+**Why not a global `UNIQUE` on the note number.** It is the *supplier's* numbering.
+Supplier A issues note 1024, supplier B also issues note 1024 — both are valid.
+Uniqueness is scoped to the parent, the same shape as `UNIQUE (estimate_id, line_no)`.
+ 
+**No `site_id` and no `estimate_id` on this table.**
+A delivery may carry materials for more than one site (recorded assumption 1), so a
+site reference on the header would contradict it. An estimate belongs to one site, so
+`estimate_id` here would contradict it too — and it would make deliveries outside any
+estimate impossible to record.
+ 
+**No completeness status.** Whether a delivery is full or partial is derived by
+comparing quantities, not stored. See the note under `delivery_items`.
+ 
+---
+ 
+### 9. `delivery_items` — delivery note lines
+ 
+| Column | Type | Constraints | Comment |
+|---|---|---|---|
+| `id` | `bigint` | PK, generated always as identity | |
+| `delivery_id` | `bigint` | `NOT NULL`, FK → `deliveries.id`, **`ON DELETE CASCADE`** | A line has no meaning without its delivery note |
+| `site_id` | `bigint` | `NOT NULL`, FK → `sites.id`, **`ON DELETE RESTRICT`** | Resolves the many-to-many between deliveries and sites |
+| `material_id` | `bigint` | `NOT NULL`, FK → `materials.id`, `ON DELETE RESTRICT` | A material exists independently |
+| `line_no` | `int` | `NOT NULL`, `CHECK (line_no > 0)` | Rows have no inherent order in a relation |
+| `description` | `text` | nullable | What is printed on the note; may differ from the catalogue name |
+| `unit_id` | `bigint` | `NOT NULL`, FK → `units.id` | The unit written on the note — may differ from the catalogue unit |
+| `quantity` | `numeric(14,3)` | `NOT NULL`, `CHECK (quantity > 0)` | Quantity actually received. Input value |
+| `unit_price` | `numeric(14,2)` | `NOT NULL`, `CHECK (unit_price >= 0)` | Frozen copy — describes the event, not the entity |
+| `total` | `numeric(14,2)` | `GENERATED ALWAYS AS (quantity * unit_price) STORED` | PostgreSQL 17 supports STORED only |
+| `created_at` | `timestamptz` | `NOT NULL DEFAULT now()` | |
+ 
+Additional constraint: `UNIQUE (delivery_id, line_no)`.
+ 
+**Surrogate key, not a composite `(delivery_id, site_id)`.** A composite PK requires the
+pair to be unique by the nature of the data. It is not here: one truck delivers cement
+and rebar to the same site on the same note — two rows, identical pair. The junction
+form used in `supplier_materials` does not transfer, because there the
+supplier/material pair genuinely is unique.
+ 
+**`CASCADE` on `delivery_id`, `RESTRICT` on `site_id`.** Deleting a delivery note should
+remove its lines. Deleting a site must never erase years of purchase history — a site
+is an independent entity.
+ 
+**No planned quantity, no outstanding quantity.**
+ 
+| Value | Where it lives |
+|---|---|
+| Planned | `estimate_items.quantity` |
+| Actual | `delivery_items.quantity` |
+| Outstanding | nowhere — derived: planned minus the sum of actual |
+ 
+Storing the planned quantity on a delivery line would be a 3NF violation: it is
+determined by the estimate, not by the delivery event. Duplicating it guarantees drift.
+ 
+---
+
 ## Relationships
 
 | From | To | Type | Implementation |
 |---|---|---|---|
 | `sites` | `estimates` | one-to-many | `estimates.site_id` |
 | `estimates` | `estimate_items` | one-to-many | `estimate_items.estimate_id` |
+| `suppliers` | `deliveries` | one-to-many | `deliveries.supplier_id` |
+| `deliveries` | `delivery_items` | one-to-many | `delivery_items.delivery_id` |
+| `sites` | `delivery_items` | one-to-many | `delivery_items.site_id` |
+| `materials` | `estimate_items` | one-to-many | `estimate_items.material_id` |
+| `materials` | `delivery_items` | one-to-many | `delivery_items.material_id` |
 | `units` | `materials` | one-to-many | `materials.unit_id` |
 | `units` | `estimate_items` | one-to-many | `estimate_items.unit_id` |
-| `materials` | `estimate_items` | one-to-many | `estimate_items.material_id` |
+| `units` | `delivery_items` | one-to-many | `delivery_items.unit_id` |
 | `suppliers` ↔ `materials` | — | **many-to-many** | resolved through `supplier_materials` |
-
+| `deliveries` ↔ `sites` | — | **many-to-many** | resolved through `delivery_items` |
+ 
 General rule applied throughout: **the foreign key always sits on the "many" side.**
 Cardinality must be tested in both directions before placing it.
-
----
-
-## Pending
-
-- `deliveries` — delivery events
-- `delivery_items` — delivery note lines; `site_id` sits here (resolves the
-  many-to-many between deliveries and sites)
-
+ 
+**Note on `delivery_items`.** It carries three roles at once: child of a delivery note,
+reference to a material, and resolution of the many-to-many between deliveries and
+sites. A junction table does not always have to be created on purpose — a document-lines
+table often already resolves a many-to-many by its own structure.
+ 
 ---
 
 ## Assumptions recorded
@@ -227,7 +300,11 @@ Cardinality must be tested in both directions before placing it.
    material appears in two lines, and cannot allocate across two estimates for one site.
 3. **One supplier has one address.** If warehouses multiply, this becomes a
    one-to-many relationship to a separate `addresses` table.
-
+4. **Delivery note numbers are unique per supplier, not globally.**
+5. **A delivery may be recorded without reference to any estimate.**
+   Consumables and off-estimate purchases are normal.
+6. **The unit on a delivery line may differ from the catalogue unit.**
+   The note records what the supplier wrote. Conversion is deferred (see Block 2).
 ---
 
 ## Deferred to Block 2
@@ -247,5 +324,13 @@ schema design", and each will be added as a migration exercise later.
 - **`EXCLUDE` constraint** with `daterange` and `btree_gist` to prevent
   overlapping validity periods.
 - **Indexes** — PK indexes are created automatically, FK indexes are **not**.
+- - **Direct link between `delivery_items` and `estimate_items`** — a nullable
+  `estimate_item_id`. Would allow the outstanding balance to be broken down per
+  estimate line, and would catch deliveries of materials not on any estimate.
+  Not added now: it requires the storekeeper to pick an estimate line at goods
+  receipt, which is unrealistic in the first version.
+- **Purchase orders** (`purchase_orders`, `purchase_order_items`) — the step between
+  an estimate and a delivery. Deliberately out of scope; the schema currently assumes
+  deliveries are recorded against sites directly.
 - **`unit_id` on `supplier_materials`** — needed if supplier quoting units differ
   from catalogue units.
