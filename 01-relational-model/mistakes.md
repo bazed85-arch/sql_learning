@@ -75,6 +75,72 @@ query (`WHERE status = 'approved'`), never something a column can mean.
 
 ---
 
+### A5. Composite primary key copied by resemblance
+ 
+```
+delivery_items:
+  delivery_id — PK (composite)
+  site_id     — PK (composite)
+```
+ 
+Written with the note *"I can't explain why, but I think these lines should be like this."*
+ 
+**Wrong because:** a composite PK guarantees the pair is unique. Test it on two rows:
+ 
+| delivery_id | site_id | material |
+|---|---|---|
+| 5 | 3 | cement |
+| 5 | 3 | rebar | ← duplicate key, insert fails |
+ 
+One truck delivering two materials to one site becomes impossible.
+ 
+The form was copied from `supplier_materials`, where the composite PK is correct
+because one supplier gives one price for one material — the pair genuinely is unique.
+Surface similarity between two "junction-looking" tables is not evidence.
+ 
+**Rule:** use a composite PK only when the combination is unique **by the nature of the
+data**. Verify with a two-row example before writing it down.
+ 
+**Correct form here:** surrogate `id` plus `line_no`, with `UNIQUE (delivery_id, line_no)` —
+the same shape as `estimate_items`.
+ 
+---
+ 
+### A6. New foreign key contradicting an already recorded decision
+ 
+Added `estimates.id` as a `NOT NULL` FK on `deliveries`, after having already recorded
+assumption 1: *a delivery may carry materials for more than one site*.
+ 
+**Wrong because:** an estimate belongs to one site. A delivery tied to one estimate is
+therefore tied to one site — which cancels the decision that put `site_id` on the lines.
+A schema cannot assert both.
+ 
+Second failure: `NOT NULL` made it impossible to record a delivery of consumables
+bought outside any estimate.
+ 
+Third: assumption 2 already stated the outstanding balance is computed per
+(site, material), so the estimate reference serves no purpose.
+ 
+**Rule:** every new relationship is checked against the assumptions already written
+down. If it contradicts one, either the FK is wrong or the assumption needs revising —
+explicitly, not silently.
+ 
+---
+ 
+### A7. Missing participant in an event table
+ 
+`deliveries` was written without `supplier_id`. The table recording deliveries did not
+record who delivered. "How much did we buy from this supplier last quarter" was
+unanswerable from the schema.
+ 
+**Root cause:** started from one relationship (`estimate_id`) and stopped, instead of
+enumerating the participants.
+ 
+**Rule:** an event table has participants — **who, to whom, when, what**. List them
+explicitly before writing any column.
+ 
+---
+
 ## B. Constraint errors
 
 ### B1. `UNIQUE` used where `PRIMARY KEY` was meant
@@ -130,6 +196,25 @@ Think about whether zero is a legitimate value, not just whether negatives are.
 
 ---
 
+### B5. `ON DELETE CASCADE` on an independent entity — repeat of B3
+ 
+```
+delivery_items.site_id — ON DELETE CASCADE
+```
+ 
+Justified as "a line has no meaning without its site". Logically true, but `CASCADE`
+means: delete a site, and every delivery line ever recorded against it disappears.
+Three years of purchase history removed by one statement.
+ 
+**Rule, restated:** `CASCADE` follows *document structure* (lines under their document).
+`RESTRICT` protects *independent entities* (sites, suppliers, materials). The question
+is not "does the row make sense without the parent" but "does the parent exist in its
+own right".
+ 
+Second occurrence of this error. Watch it.
+ 
+---
+
 ## C. Generated column errors
 
 ### C1. `quantity` declared as generated
@@ -165,6 +250,23 @@ The **estimate total** is a sum across many rows — that is an aggregate, compu
 This project runs 17.6 → `STORED`.
 Always write the keyword explicitly: omitting it is version-dependent behaviour.
 
+---
+
+### C4. Expecting a column to pull a value from another table
+ 
+Two instances in one table:
+- `unit_id` — *"I want to take units.id from here"*
+- `quantity` — *"I don't know how to link it so the quantity fills in automatically"*
+**Wrong because:** a column stores a value; it does not fetch one. Generation
+expressions cannot reference other tables, and no other column type does either.
+Copying a default at insert time is the **application's** job, not the schema's.
+ 
+`delivery_items.quantity` is the quantity actually received — a storekeeper counts it
+and types it. The database cannot know what was on the truck.
+ 
+**Rule:** if the value comes from outside the row, it is either a stored copy written
+at insert time, or a join at read time. Never an automatic column.
+ 
 ---
 
 ## D. Normalization errors
@@ -214,6 +316,30 @@ unanswerable.
 **Rule:** data that repeats over time grows **downward as rows**, never sideways
 as columns. Same pattern as the 1NF violation `material_1, material_2, material_3`.
 
+---
+
+### D4. Planned and actual quantity in the same row
+ 
+Proposed adding "delivered planned" and "delivered actual" columns to `delivery_items`.
+ 
+**Wrong because:** the planned quantity is determined by the estimate, not by the
+delivery event. Storing it on a delivery line duplicates it and guarantees drift —
+the same failure as D1.
+ 
+| Value | Where it belongs |
+|---|---|
+| Planned | `estimate_items.quantity` |
+| Actual | `delivery_items.quantity` |
+| Outstanding | nowhere — derived |
+ 
+The same applies to a "fully / partially delivered" status: completeness is the result
+of comparing sums, not a fact about the note. A `status` column is still justified, but
+for the **state of the document** (received, received with issues, rejected), not for a
+calculation.
+ 
+**Rule:** a derived value is not stored unless there is a specific reason. Ask what
+determines it — if the answer is another table, it does not belong here.
+ 
 ---
 
 ## E. Specification discipline
@@ -292,6 +418,38 @@ A cardinality answer is a step toward the decision, not the decision.
 
 ---
 
+### E7. "I can't explain why, but I think it should be like this"
+ 
+Written verbatim about the composite PK in A5.
+ 
+**Not a small thing.** It is the signal that a form was copied rather than designed.
+Every structure in a schema exists for a reason that can be stated in one sentence.
+If the sentence does not come, the structure has not been checked.
+ 
+**Rule:** a design line with no justification is a hypothesis, not a decision. Mark it
+as an open question instead of writing it as settled.
+ 
+Compare with what was done correctly on unit conversion earlier: *"conversion is needed
+here, mechanism unclear"* — a marked gap costs nothing, an unverified construct costs
+a lot.
+ 
+---
+ 
+### E8. Enumerated values written in the wrong language
+ 
+```
+CHECK (status IN (доставлен полностью, доставлен частично))
+```
+ 
+`CHECK` values end up in application code, in API responses, and in every query.
+Use lowercase English identifiers: `('draft','received','received_with_issues','rejected')`.
+UI labels are translated in the interface layer, not stored in the constraint.
+ 
+Also in this table: `delivery_item_name` → `description`. Repeat of E3 — the table is
+already the context.
+ 
+---
+
 ## Recurring patterns to watch
 
 1. **Cardinality in both directions, in writing, before placing any FK.**
@@ -300,3 +458,26 @@ A cardinality answer is a step toward the decision, not the decision.
 4. **Verify the construct exists** before writing a constraint (`CHECK` across tables,
    `VIRTUAL` on PG 17).
 5. **Finish the question that was asked**, including the "why".
+6. **Test a composite PK on two example rows** before accepting it.
+7. **Check every new FK against the recorded assumptions.**
+8. **List the participants of an event** — who, to whom, when, what.
+9. **`CASCADE` follows document structure, `RESTRICT` protects independent entities.**
+10. **If the justification does not come out in one sentence, it is an open question,
+    not a decision.**
+---
+ 
+## Scorecard — Topic 1
+ 
+| | Count |
+|---|---|
+| Structural errors | 7 |
+| Constraint errors | 5 |
+| Generated column errors | 4 |
+| Normalization errors | 4 |
+| Specification discipline | 8 |
+| **Total** | **28** |
+ 
+Repeated after being flagged: B3→B5, C1→C4, D1→D2, E3→E8.
+ 
+Applied a rule independently, without prompting: `unit_price` on `delivery_items`
+stored as a frozen copy, justified as "event, not entity" (rule D2).
