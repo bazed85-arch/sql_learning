@@ -63,7 +63,7 @@ instead of an `ALTER TABLE`, and the table can carry attributes later.
 | Column | Type | Constraints | Comment |
 |---|---|---|---|
 | `id` | `bigint` | PK, generated always as identity | |
-| `code` | `text` | `UNIQUE`, nullable | Internal article number — what people actually say out loud |
+| `article_no` | `text` | `UNIQUE`, nullable | Our own article number — what people actually say out loud. Nullable: a material can be created before a number is assigned |
 | `name` | `text` | `NOT NULL` | Not UNIQUE: same name from two manufacturers = different materials |
 | `description` | `text` | nullable | Full spec: grade, dimensions, standard |
 | `unit_id` | `bigint` | `NOT NULL`, FK → `units.id`, `ON DELETE RESTRICT` | Catalogue unit of measure |
