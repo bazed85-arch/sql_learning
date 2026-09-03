@@ -22,19 +22,19 @@ Domain: construction sites, cost estimates, suppliers, deliveries.
 | Junction tables | both entity names | `supplier_materials` |
 
 Reason for `snake_case`: PostgreSQL folds unquoted identifiers to lower case
-([4.1.1 Identifiers and Key Words](https://www.postgresql.org/docs/current/sql-syntax-lexical.html)).
+([4.1.1 Identifiers and Key Words](https://www.postgresql.org/docs/17/sql-syntax-lexical.html)).
 `supplierMaterials` silently becomes `suppliermaterials` unless quoted everywhere.
 
 ### Type conventions
 
 | Purpose | Type | Reason |
 |---|---|---|
-| Surrogate key | `bigint generated always as identity` | [5.3 Identity Columns](https://www.postgresql.org/docs/current/ddl-identity-columns.html) |
-| Money | `numeric(14,2)` | Exact arithmetic. Never `double precision`, never `money` — [8.1.2](https://www.postgresql.org/docs/current/datatype-numeric.html) |
+| Surrogate key | `bigint generated always as identity` | [5.3 Identity Columns](https://www.postgresql.org/docs/17/ddl-identity-columns.html) |
+| Money | `numeric(14,2)` | Exact arithmetic. Never `double precision`, never `money` — [8.1.2](https://www.postgresql.org/docs/17/datatype-numeric.html) |
 | Quantity | `numeric(14,3)` | Fractional units exist (2.5 t of sand) |
-| String | `text` | No performance difference vs `varchar(n)` in PostgreSQL — [8.3](https://www.postgresql.org/docs/current/datatype-character.html) |
+| String | `text` | No performance difference vs `varchar(n)` in PostgreSQL — [8.3](https://www.postgresql.org/docs/17/datatype-character.html) |
 | Calendar day | `date` | A delivery date is a calendar fact, not a moment |
-| Moment in time | `timestamptz` | Stores an absolute instant — [8.5.1.3](https://www.postgresql.org/docs/current/datatype-datetime.html) |
+| Moment in time | `timestamptz` | Stores an absolute instant — [8.5](https://www.postgresql.org/docs/17/datatype-datetime.html) |
 | Fixed value set | `text` + `CHECK` | Chosen over `enum`: altering a `CHECK` is trivial, altering an enum is not |
 
 ### Nullability
@@ -49,7 +49,7 @@ The test: **can a row exist meaningfully without this value at insert time?**
 
 `UNIQUE` and nullable combine deliberately: PostgreSQL treats NULLs as distinct by
 default, so a `UNIQUE` column accepts any number of them
-([5.4.3](https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-UNIQUE-CONSTRAINTS)).
+([5.5.3](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-UNIQUE-CONSTRAINTS)).
 Article numbers are unique when present; materials without one are unrestricted.
 
 `sites.actual_end_date` is the cleanest case: NULL means "not finished yet" — a
@@ -171,7 +171,7 @@ An FK in both directions would be a circular reference — neither row could be 
 
 **No `total` column.** The estimate total is an aggregate across many rows.
 Generated columns cannot reference other rows or tables
-([5.4 Generated Columns](https://www.postgresql.org/docs/current/ddl-generated-columns.html)).
+([5.4 Generated Columns](https://www.postgresql.org/docs/17/ddl-generated-columns.html)).
 Compute with `SUM()` in a query or expose through a view.
 
 ---
@@ -185,7 +185,7 @@ Compute with `SUM()` in a query or expose through a view.
 | `material_id` | `bigint` | `NOT NULL`, FK → `materials.id`, **`ON DELETE RESTRICT`** | A material exists independently — never erase history |
 | `line_no` | `int` | `NOT NULL`, `CHECK (line_no > 0)` | Rows have no inherent order in a relation |
 | `description` | `text` | nullable | What is printed on this line; may differ from catalogue name |
-| `unit_id` | `bigint` | `NOT NULL`, FK → `units.id` | Copied from the material, can be overridden |
+| `unit_id` | `bigint` | `NOT NULL`, FK → `units.id`, `ON DELETE RESTRICT` | Copied from the material, can be overridden. RESTRICT: a unit used on a document line must not be deletable |
 | `quantity` | `numeric(14,3)` | `NOT NULL`, `CHECK (quantity > 0)` | Input value — cannot be generated |
 | `unit_price` | `numeric(14,2)` | `NOT NULL`, `CHECK (unit_price >= 0)` | **Frozen copy, not a foreign key** — see below |
 | `total` | `numeric(14,2)` | `GENERATED ALWAYS AS (quantity * unit_price) STORED` | PostgreSQL 17 supports STORED only; VIRTUAL arrived in 18 |
@@ -248,7 +248,7 @@ comparing quantities, not stored. See the note under `delivery_items`.
 | `material_id` | `bigint` | `NOT NULL`, FK → `materials.id`, `ON DELETE RESTRICT` | A material exists independently |
 | `line_no` | `int` | `NOT NULL`, `CHECK (line_no > 0)` | Rows have no inherent order in a relation |
 | `description` | `text` | nullable | What is printed on the note; may differ from the catalogue name |
-| `unit_id` | `bigint` | `NOT NULL`, FK → `units.id` | The unit written on the note — may differ from the catalogue unit |
+| `unit_id` | `bigint` | `NOT NULL`, FK → `units.id`, `ON DELETE RESTRICT` | The unit written on the note — may differ from the catalogue unit. RESTRICT per rule 5.2 |
 | `quantity` | `numeric(14,3)` | `NOT NULL`, `CHECK (quantity > 0)` | Quantity actually received. Input value |
 | `unit_price` | `numeric(14,2)` | `NOT NULL`, `CHECK (unit_price >= 0)` | Frozen copy — describes the event, not the entity |
 | `total` | `numeric(14,2)` | `GENERATED ALWAYS AS (quantity * unit_price) STORED` | PostgreSQL 17 supports STORED only |
