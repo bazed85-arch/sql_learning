@@ -37,6 +37,23 @@ Reason for `snake_case`: PostgreSQL folds unquoted identifiers to lower case
 | Moment in time | `timestamptz` | Stores an absolute instant — [8.5.1.3](https://www.postgresql.org/docs/current/datatype-datetime.html) |
 | Fixed value set | `text` + `CHECK` | Chosen over `enum`: altering a `CHECK` is trivial, altering an enum is not |
 
+### Nullability
+
+The test: **can a row exist meaningfully without this value at insert time?**
+
+| `NOT NULL` | nullable |
+|---|---|
+| The row is meaningless without it | The value may be unknown or not applicable |
+| Closed reference list, filled in once | Business attribute, filled in by a user |
+| `units.code`, `materials.name`, `deliveries.supplier_id` | `materials.article_no`, `suppliers.tax_id`, `sites.actual_end_date` |
+
+`UNIQUE` and nullable combine deliberately: PostgreSQL treats NULLs as distinct by
+default, so a `UNIQUE` column accepts any number of them
+([5.4.3](https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-UNIQUE-CONSTRAINTS)).
+Article numbers are unique when present; materials without one are unrestricted.
+
+`sites.actual_end_date` is the cleanest case: NULL means "not finished yet" — a
+meaningful answer, not missing data.
 ---
 
 ## Tables
@@ -46,7 +63,7 @@ Reason for `snake_case`: PostgreSQL folds unquoted identifiers to lower case
 | Column | Type | Constraints | Comment |
 |---|---|---|---|
 | `id` | `bigint` | PK, generated always as identity | |
-| `code` | `text` | `UNIQUE`, `NOT NULL`, `CHECK (code = lower(trim(code)))` | Natural key, enforced as UNIQUE — not as PK |
+| `code` | `text` | `UNIQUE`, `NOT NULL`, `CHECK (code = lower(trim(code)))` | NOT NULL because the code *is* the unit — a row without it cannot be displayed anywhere: not on a delivery note, not in an estimate, not in a dropdown. Also a closed reference list, filled in once, so there is no state where a unit exists but its code is unknown. Contrast with `materials.article_no`, which is nullable |
 | `name` | `text` | `NOT NULL` | Full name shown in UI |
 | `sort_order` | `int` | nullable | Controls dropdown order; alphabetical is wrong here |
 
