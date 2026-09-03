@@ -43,8 +43,8 @@ accumulates and the total stops matching the sum of the lines.
 Do not use `money`: its output format depends on the `lc_monetary` locale and it does
 not record which currency it holds.
  
-[8.1.2 Arbitrary Precision Numbers](https://www.postgresql.org/docs/current/datatype-numeric.html) ·
-[8.2 Monetary Types](https://www.postgresql.org/docs/current/datatype-money.html)
+[8.1.2 Arbitrary Precision Numbers](https://www.postgresql.org/docs/17/datatype-numeric.html) ·
+[8.2 Monetary Types](https://www.postgresql.org/docs/17/datatype-money.html)
  
 **2.2 Always state precision and scale.**
 Money → `numeric(14,2)`. Quantity → `numeric(14,3)`.
@@ -63,7 +63,7 @@ Ask: **is this a calendar fact, or an instant in time?**
 Never plain `timestamp`: it stores a wall-clock reading with no record of which zone
 it came from, and that information is lost permanently.
  
-[8.5 Date/Time Types](https://www.postgresql.org/docs/current/datatype-datetime.html)
+[8.5 Date/Time Types](https://www.postgresql.org/docs/17/datatype-datetime.html)
  
 **2.4 `text`, not `varchar(n)`.**
 No performance difference in PostgreSQL, and `varchar(n)` costs a length check.
@@ -71,7 +71,7 @@ If a limit is genuinely needed, use a `CHECK` — it can be altered later withou
 rewriting the column type.
 *(PostgreSQL-specific. Do not carry this habit to SQL Server or Oracle.)*
  
-[8.3 Character Types](https://www.postgresql.org/docs/current/datatype-character.html)
+[8.3 Character Types](https://www.postgresql.org/docs/17/datatype-character.html)
  
 **2.5 Identifiers that are never arithmetic are `text`.**
 Phone numbers (`+34`, spaces, extensions), tax ids (letters, leading zeros),
@@ -108,7 +108,7 @@ in the database.
 `bigint generated always as identity` by default. `uuid` where the id appears in a URL
 or is exposed to a customer — sequential ids leak row counts and can be enumerated.
  
-[5.3 Identity Columns](https://www.postgresql.org/docs/current/ddl-identity-columns.html)
+[5.3 Identity Columns](https://www.postgresql.org/docs/17/ddl-identity-columns.html)
  
 **3.3 `UNIQUE` and nullable combine deliberately.**
  
@@ -118,7 +118,7 @@ are unrestricted.
  
 `UNIQUE NULLS NOT DISTINCT` (PostgreSQL 15+) inverts this — at most one NULL.
  
-[5.4.3 Unique Constraints](https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-UNIQUE-CONSTRAINTS)
+[5.5.3 Unique Constraints](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-UNIQUE-CONSTRAINTS)
  
 **3.4 A composite PK is valid only when the combination is unique by the nature of
 the data.**
@@ -199,7 +199,7 @@ valid SQL.
  
 Cross-table rules are enforced by foreign keys, or by triggers.
  
-[5.4.1 Check Constraints](https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-CHECK-CONSTRAINTS)
+[5.5.1 Check Constraints](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-CHECK-CONSTRAINTS)
  
 **5.2 `CASCADE` follows document structure. `RESTRICT` protects independent entities.**
  
@@ -216,7 +216,7 @@ The question is **not** "does this row make sense without its parent" — it is
  
 Better than deleting independent entities at all: `is_active boolean` and hide them.
  
-[5.4.5 Foreign Keys](https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-FK)
+[5.5.5 Foreign Keys](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-FK)
  
 **5.3 Put business rules in the database.**
 `CHECK (quantity > 0)`, `CHECK (unit_price >= 0)`, `CHECK (lead_time_days >= 0)`.
@@ -250,7 +250,7 @@ The expression must be immutable.
 the row. A document total is a **sum across many rows** — an aggregate — and aggregates
 are never generated columns. Compute with `SUM()` in a query or expose through a view.
  
-[5.4 Generated Columns](https://www.postgresql.org/docs/current/ddl-generated-columns.html)
+[5.4 Generated Columns](https://www.postgresql.org/docs/17/ddl-generated-columns.html)
  
 **6.2 PostgreSQL 12–17: `STORED` only. `VIRTUAL` arrived in 18 and is the default there.**
 Always write the keyword explicitly — omitting it is version-dependent behaviour.
@@ -398,7 +398,7 @@ A recorded assumption is part of the design. An unrecorded one is a future bug.
 PostgreSQL folds unquoted identifiers to lower case. `supplierMaterials` silently
 becomes `suppliermaterials` unless quoted everywhere, forever.
  
-[4.1.1 Identifiers and Key Words](https://www.postgresql.org/docs/current/sql-syntax-lexical.html)
+[4.1.1 Identifiers and Key Words](https://www.postgresql.org/docs/17/sql-syntax-lexical.html)
  
 **10.2 The table is already the context.**
 `materials.name`, not `materials.material_name`.
