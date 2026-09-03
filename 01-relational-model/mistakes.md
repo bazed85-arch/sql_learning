@@ -159,6 +159,7 @@ A `UNIQUE` column without `NOT NULL` can hold ten NULLs. That is not an identifi
 
 [5.5.3 Unique Constraints](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-UNIQUE-CONSTRAINTS) ·
 [5.5.4 Primary Keys](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-PRIMARY-KEYS)
+
 ---
 
 ### B2. `CHECK` referencing another table
