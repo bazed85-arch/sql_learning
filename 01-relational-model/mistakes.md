@@ -25,7 +25,7 @@ The parent table carries no reference back to its children.
 **Root cause:** I designed the child table first and let its needs shape the parent.
 Design the parent first, then hang children off it.
 
-[5.4.5 Foreign Keys](https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-FK)
+[5.5.5 Foreign Keys](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-FK)
 
 ---
 
@@ -57,7 +57,7 @@ is not a construct that exists.
 **Rule:** foreign keys reference **keys**. If you want to record where a value came
 from, reference the row (`supplier_material_id`) and store the value separately.
 
-[5.4.5 Foreign Keys](https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-FK)
+[5.5.5 Foreign Keys](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-FK)
 
 ---
 
@@ -157,9 +157,8 @@ supplier_materials_id — bigint — unique
 
 A `UNIQUE` column without `NOT NULL` can hold ten NULLs. That is not an identifier.
 
-[5.4.3 Unique Constraints](https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-UNIQUE-CONSTRAINTS) ·
-[5.4.4 Primary Keys](https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-PRIMARY-KEYS)
-
+[5.5.3 Unique Constraints](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-UNIQUE-CONSTRAINTS) ·
+[5.5.4 Primary Keys](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-PRIMARY-KEYS)
 ---
 
 ### B2. `CHECK` referencing another table
@@ -172,7 +171,7 @@ CHECK material_id = materials.id
 inserted or updated**, using only that row's own columns. Cross-table rules are
 enforced by foreign keys, or by triggers — never by `CHECK`.
 
-[5.4.1 Check Constraints](https://www.postgresql.org/docs/current/ddl-constraints.html#DDL-CONSTRAINTS-CHECK-CONSTRAINTS)
+[5.5.1 Check Constraints](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-CHECK-CONSTRAINTS)
 
 ---
 
@@ -238,8 +237,7 @@ no other tables, no aggregates, no other generated columns, and it must be immut
 The **estimate total** is a sum across many rows — that is an aggregate, computed with
 `SUM()` in a query or exposed through a view.
 
-[5.4 Generated Columns](https://www.postgresql.org/docs/current/ddl-generated-columns.html)
-
+[5.4 Generated Columns](https://www.postgresql.org/docs/17/ddl-generated-columns.html)
 ---
 
 ### C3. Not knowing which generation mode is available
@@ -368,7 +366,7 @@ places and documents intent.
 
 Money → `numeric(14,2)`. Quantity → `numeric(14,3)`.
 
-[8.1.2 Arbitrary Precision Numbers](https://www.postgresql.org/docs/current/datatype-numeric.html)
+[8.1.2 Arbitrary Precision Numbers](https://www.postgresql.org/docs/17/datatype-numeric.html)
 
 ---
 
@@ -403,8 +401,7 @@ Used `timestamptz` for `valid_from` on a price list.
 
 Ask: **is this a moment in time, or a calendar day?**
 
-[8.5 Date/Time Types](https://www.postgresql.org/docs/current/datatype-datetime.html)
-
+[8.5 Date/Time Types](https://www.postgresql.org/docs/17/datatype-datetime.html)
 ---
 
 ### E6. Answering a different question than the one asked
