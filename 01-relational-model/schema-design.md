@@ -34,7 +34,7 @@ Reason for `snake_case`: PostgreSQL folds unquoted identifiers to lower case
 | Quantity | `numeric(14,3)` | Fractional units exist (2.5 t of sand) |
 | String | `text` | No performance difference vs `varchar(n)` in PostgreSQL — [8.3](https://www.postgresql.org/docs/17/datatype-character.html) |
 | Calendar day | `date` | A delivery date is a calendar fact, not a moment |
-| Moment in time | `timestamptz` | Stores an absolute instant — [8.5](https://www.postgresql.org/docs/17/datatype-datetime.html) |
+| Moment in time | `timestamptz` | Stores an absolute instant — [8.5.1.3](https://www.postgresql.org/docs/17/datatype-datetime.html) |
 | Fixed value set | `text` + `CHECK` | Chosen over `enum`: altering a `CHECK` is trivial, altering an enum is not |
 
 ### Nullability
