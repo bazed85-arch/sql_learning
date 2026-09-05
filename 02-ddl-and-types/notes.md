@@ -15,9 +15,9 @@ Database: Supabase project `construction-supply`, eu-central-1, PostgreSQL 17.6.
 | 0 | `units` | `<ts>_create_units.sql` |
 | 0 | `suppliers`, `sites` | `<ts>_create_suppliers_sites.sql` |
 | 1 | `materials` | `<ts>_create_materials.sql` |
- 
-Remaining: `estimates`, `deliveries` (level 1), then `supplier_materials`,
-`estimate_items`, `delivery_items` (level 2).
+| 1 | `estimates`, `deliveries` | `<ts>_create_estimates_deliveries.sql` |
+
+Remaining: `supplier_materials`, `estimate_items`, `delivery_items` (level 2).
  
 ---
  
@@ -206,3 +206,18 @@ Revisit after Topic 5.
 **3. Carried over from Topic 1, still open.**
 Estimate revisions (decision #2) and unit conversion. Both are changes to an existing
 populated schema, so both belong to the `ALTER TABLE` step.
+
+**4. `UNIQUE (supplier_id, delivery_note_number)` may be scoped too widely.**
+
+The constraint stops the same delivery note being entered twice for one supplier —
+the common mistake during goods receipt, so the intent is right.
+
+But many suppliers reset their numbering each January. Note 1024 of 2026 and note
+1024 of 2027 are two different documents that legitimately share a number. The
+current constraint accepts the first and rejects the second — a year after the schema
+was written, with nothing having changed to explain it.
+
+Candidate fix: scope uniqueness to supplier **and** year. Same shape as
+"unique within the parent vs globally", one level deeper.
+
+Not urgent — no data yet. Decide before the system holds a second year of deliveries.
