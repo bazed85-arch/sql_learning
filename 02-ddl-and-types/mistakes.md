@@ -32,6 +32,34 @@ down correctly; the model underneath it was wrong.
 The answer RESTRICT was correct. It was reached from a reason that does not exist.
  
 [5.5.5 Foreign Keys](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-FK)
+
+### A2. Cardinality answered backwards, conclusion taken from elsewhere
+
+For `deliveries` → `suppliers` I wrote:
+
+Can one delivery contain several suppliers — YES
+Can one supplier contain several deliveries — NO
+
+Both are inverted. One delivery is one supplier's note — `supplier_id` is a single
+`NOT NULL` column, no other supplier exists in the row. One supplier brings hundreds
+of deliveries a year. Correct: no / yes.
+
+**The real error is not the inversion.** Applying my own rule to my own answers —
+yes/no means the FK goes on the "many" side — those answers put the key on
+`suppliers`. I placed it on `deliveries`. The conclusion did not follow from the
+check; it came from the specification, while the two questions were produced
+separately, as a procedure to be shown rather than a test with consequences.
+
+**Rule:** after answering both directions, verify that the placement follows from the
+answers. If it does not, something is wrong and it must be found before writing DDL.
+One second of checking.
+
+**Likely source of the substitution:** assumption 1 in the specification says one
+delivery may carry materials for several *sites*. A true statement about `sites`
+stood in for the question about `suppliers`. Similar words, different relationship.
+
+The first pair in the same task — `estimates` / `sites` — was answered correctly and
+the conclusion did follow. The check degenerates when the answer is already known.
  
 ---
  
@@ -243,6 +271,9 @@ is more than any single repeat across the whole of Topic 1.
 9. **Run the experiment** instead of arguing about what the parser accepts.
 10. **A rule written in a file is not yet a rule available in the head.** The gap
     closes on exercises, not on rewrites.
+11. **A check whose result changes nothing is not a check.** Verify that the
+    conclusion follows from the answers, not from the source the answers were
+    supposed to test.   
 ---
  
 ## Scorecard — Topic 2 (in progress)
