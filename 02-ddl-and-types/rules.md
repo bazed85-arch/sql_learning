@@ -249,7 +249,28 @@ systems and adds nothing.
  
 [8.1.2 Arbitrary Precision Numbers](https://www.postgresql.org/docs/17/datatype-numeric.html) ·
 [8.1.3 Floating-Point Types](https://www.postgresql.org/docs/17/datatype-numeric.html#DATATYPE-FLOAT)
- 
+
+ **6.5 `date` vs `timestamptz` is decided by what the value describes, not by how it
+is entered.**
+
+`date` — a calendar fact. Goods were received on 5 September; that stays 5 September
+regardless of who reads the row or from where. There is no moment within the day and
+none is needed.
+
+`timestamptz` — a point in time. An absolute instant, meant to be ordered against
+other instants. Stored as UTC and rendered in the reader's time zone.
+
+Manual vs automatic entry is not the criterion: `estimate_date` is typed by hand and
+is a `date`; `now()` can be written into a `date` column without complaint.
+
+Cost of swapping them, on this project's own geography: the office is at UTC+0, a
+supplier at UTC+1. Store a delivery date as `timestamptz` and 1 March entered in
+Madrid at midnight reads as 28 February 23:00 here — the document date changed
+because of a time zone, while the paper note still says 1 March.
+
+The reverse swap is no better: `created_at` as `date` destroys ordering within the
+day, which is the only reason that column exists.
+
 ---
  
 ## 7. What the database creates on its own
