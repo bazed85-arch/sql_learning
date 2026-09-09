@@ -17,8 +17,9 @@ Database: Supabase project `construction-supply`, eu-central-1, PostgreSQL 17.6.
 | 1 | `materials` | `<ts>_create_materials.sql` |
 | 1 | `estimates`, `deliveries` | `<ts>_create_estimates_deliveries.sql` |
 | 2 | `supplier_materials` | `<ts>_create_supplier_materials.sql` |
+| 2 | `estimate_items` | `<ts>_create_estimate_items.sql` |
 
-Remaining: `estimate_items`, `delivery_items` (level 2).
+Remaining: `delivery_items` (level 2).
 
 ---
  
@@ -55,6 +56,7 @@ Two things to carry into the Edge Functions work:
 - `428C9` is **not** in class 23. An error handler that catches class 23 as "all data
   errors" will miss it. Writing to a `GENERATED ALWAYS` column is a permission
   question, not a consistency question, and it is rejected before values are checked.
+
 [Appendix A. Error Codes](https://www.postgresql.org/docs/17/errcodes-appendix.html)
  
 ### Why attempt 3 passed
@@ -89,6 +91,7 @@ Three NULLs coexisted in the column. Two empty strings did not.
 - `NULL = NULL` → `NULL`. Not `true`, not `false`. Comparing an unknown to an unknown
   yields unknown, so equality is never established, so the constraint is never
   violated — any number of times.
+  
 `UNIQUE` constrains only values that are **present**. Absent ones it does not see.
  
 The error message is worth reading: `Key (article_no)=() already exists`. The
@@ -176,6 +179,27 @@ unchanged: the column is `int`, the literal is `int`, nothing to reconcile.
 Reading the catalogue definition is therefore not the same as reading what was
 written. Expect `IN (...)` to appear as `= ANY (ARRAY[...])` and literals to carry
 explicit casts.
+
+**A generated column's expression is stored where `DEFAULT` expressions are stored.**
+
+`pg_attrdef` holds both. In `estimate_items`, `total` carries
+`(quantity * unit_price)` and `created_at` carries `now()` — same catalogue, same
+column. Only `pg_attribute.attgenerated` tells them apart: `s` for STORED, empty for
+an ordinary column.
+
+| | `DEFAULT` | `GENERATED ... STORED` |
+|---|---|---|
+| Evaluated | on INSERT, when no value is supplied | on every INSERT and on any UPDATE touching its operands |
+| Own value accepted | yes | no |
+| May reference other columns of the row | no | yes — that is the point |
+| Independent afterwards | yes, UPDATE changes it like any column | no, recomputed |
+
+Consequence: edit `quantity` in the app and `total` follows by itself. Edit `total`
+and nothing happens — which is the guarantee the construct is there for.
+
+`total` is also the only column in the table without `NOT NULL`, deliberately: an
+expression over two `NOT NULL` operands cannot produce `NULL`, so the constraint would
+be a declaration with no work to do.
  
 ---
  
@@ -207,6 +231,7 @@ Needs `CHECK` constraints, and two different kinds:
 - on optional text with `UNIQUE` (`materials.article_no`) — forbid the empty string
   *instead of* `NULL`, otherwise the column silently means "only one material may
   lack an article number".
+
 Requires `ALTER TABLE` on tables that already hold data. Deferred to the `ALTER TABLE`
 step of this topic.
  
