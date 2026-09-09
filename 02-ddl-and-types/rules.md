@@ -114,6 +114,37 @@ Not a distortion — `IN` over a literal list is syntactic sugar. The rewritten 
 what appears in the catalog and in error messages, so learn to read it.
  
 [5.5 Constraints](https://www.postgresql.org/docs/17/ddl-constraints.html)
+
+**2.6 A missing comma turns a table constraint into a column constraint.**
+
+```sql
+created_at timestamptz NOT NULL DEFAULT now()
+CONSTRAINT t_pk PRIMARY KEY (a, b)          -- no comma above
+```
+
+The parser sees no boundary and reads the constraint as part of the `created_at`
+definition — i.e. as a column constraint, where `PRIMARY KEY` takes no column list
+because it applies to exactly one column. Syntax error, class 42.
+
+The same text with a comma is a two-column primary key on the table. One character
+decides which of the two grammars applies.
+
+## 2A. Composite primary key and foreign keys on the same columns
+
+**2A.1 A composite PK and the FKs on its columns guarantee different things, and
+neither substitutes for the other.**
+
+In a junction table, `supplier_id` and `material_id` are covered by both a composite
+`PRIMARY KEY` and a `FOREIGN KEY` each.
+
+- The **PK** guarantees the *pair* does not repeat, and that both columns are
+  `NOT NULL`. It does not check that the numbers correspond to anything: the pair
+  `(999, 888)` is unique and, to the PK, faultless.
+- Each **FK** guarantees its own value exists in the parent table. It knows nothing
+  about the pair: inserting `(1, 5)` twice does not concern it.
+
+One blocks duplicates, the other blocks references into nothing. Remove either and
+the matching class of garbage appears.
  
 ---
  
