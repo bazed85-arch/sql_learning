@@ -351,6 +351,7 @@ is more than any single repeat across the whole of Topic 1.
 11. **A check whose result changes nothing is not a check.** Verify the conclusion
     follows from the answers. Ask cardinality between entities, before the structure
     exists; afterwards, read it off the columns — a single-column FK is always "one".
+
 ---
  
 ## Scorecard — Topic 2 (in progress)
