@@ -129,6 +129,24 @@ because it applies to exactly one column. Syntax error, class 42.
 The same text with a comma is a two-column primary key on the table. One character
 decides which of the two grammars applies.
 
+**2.7 `ON DELETE` lives inside the `REFERENCES` clause, not beside it.**
+
+REFERENCES reftable [ ( refcolumn ) ] [ MATCH ... ]
+[ ON DELETE action ] [ ON UPDATE action ]
+
+They are one constraint. Inserting `NOT NULL` between them closes the foreign key
+definition and leaves `ON DELETE` stranded — syntax error, class 42.
+
+`NOT NULL` is a separate column constraint. Put it before `CONSTRAINT ... REFERENCES`
+or after the whole clause. Order between constraints is free; the integrity of each
+one is not.
+
+**2.8 Constraint names must stay predictable, including the long ones.**
+
+`estimate_items_estimate_id_line_no_uq`, not `estimate_items_uq`. A convention is only
+worth having while a name can be derived from the column list without looking. The
+short form also leaves no room for a second `UNIQUE` on the same table.
+
 ## 2A. Composite primary key and foreign keys on the same columns
 
 **2A.1 A composite PK and the FKs on its columns guarantee different things, and
@@ -236,6 +254,29 @@ suppliers with no tax id all insert; two suppliers with the same tax id do not.
  
 [5.5.1 Check Constraints](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-CHECK-CONSTRAINTS) ·
 [5.5.3 Unique Constraints](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-UNIQUE-CONSTRAINTS)
+
+**5.4 `ON DELETE` follows from the *type of relationship*, not from the parent's
+independence alone.**
+
+The earlier formulation — "does the parent exist in its own right" — is necessary but
+not sufficient. An estimate is a perfectly independent entity, and its lines still
+cascade.
+
+| Relationship | Meaning | Action |
+|---|---|---|
+| **Reference** | the child points at an independently existing object: a unit, a material, a supplier | `RESTRICT` |
+| **Composition** | the child is *part of* the parent, does not exist outside it, and takes its identity from it | `CASCADE` |
+
+Working test: **does the child row have an identity of its own outside the parent?**
+
+Estimate line number 3 — the third line of *what*? The question has no answer without
+the estimate, and `line_no` is unique only within `estimate_id`. Composition →
+`CASCADE`.
+
+A material with `unit_id = 2` stays that material whatever the unit is.
+Reference → `RESTRICT`.
+
+Applying one action uniformly across a table is the mistake, in either direction.
  
 ---
  
@@ -301,6 +342,37 @@ because of a time zone, while the paper note still says 1 March.
 
 The reverse swap is no better: `created_at` as `date` destroys ordering within the
 day, which is the only reason that column exists.
+
+---
+
+## 6A. Generated columns
+
+**6A.1 `STORED` is mandatory on PostgreSQL 17.**
+
+`VIRTUAL` arrived in 18 and is the default there. Write the keyword explicitly in
+either case: behaviour that depends on the server version must not depend on silence
+in the DDL.
+
+**6A.2 A generated column cannot be written to, and the error is not class 23.**
+
+The value is a function of other columns of the same row. Allowing a write would
+permit a row where `total <> quantity * unit_price` — destroying the only guarantee
+the construct provides. Like identity columns, this is a question of *permission to
+write*, not of data consistency, so the rejection comes from class 42.
+
+**6A.3 It recomputes on UPDATE, not only on INSERT.**
+
+Any update touching an operand re-evaluates the expression. The value never
+"freezes" — which is exactly why a frozen price (`unit_price`) must be an ordinary
+column and not generated from anywhere.
+
+**6A.4 The expression is stored in `pg_attrdef`, alongside `DEFAULT` expressions.**
+
+Only `pg_attribute.attgenerated` distinguishes them: `s` for STORED, empty for an
+ordinary column. Reading `pg_attrdef` alone cannot tell a default from a generated
+column.
+
+[5.4 Generated Columns](https://www.postgresql.org/docs/17/ddl-generated-columns.html)
 
 ---
  
