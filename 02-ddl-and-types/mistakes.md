@@ -33,6 +33,11 @@ The answer RESTRICT was correct. It was reached from a reason that does not exis
  
 [5.5.5 Foreign Keys](https://www.postgresql.org/docs/17/ddl-constraints.html#DDL-CONSTRAINTS-FK)
 
+**Criterion refined later.** Rule 5.2 of Topic 1 — "does the parent exist in its own
+right" — turned out to be incomplete; see `rules.md` 5.4 of this topic. An estimate is
+independent and its lines still cascade. The question is the type of relationship,
+reference or composition.
+
 ### A2. Cardinality answered backwards, conclusion taken from elsewhere
 
 For `deliveries` → `suppliers` I wrote:
@@ -60,6 +65,58 @@ stood in for the question about `suppliers`. Similar words, different relationsh
 
 The first pair in the same task — `estimates` / `sites` — was answered correctly and
 the conclusion did follow. The check degenerates when the answer is already known.
+
+**Diagnosed in A3.** The same inversion recurred one task later, and there the cause
+became visible: "can X have several Y" was being read sometimes as *one row of X* and
+sometimes as *table X as a whole*. Both entries describe one error, not two.
+
+### A3. The same cardinality question answered two ways in one message
+
+Three pairs for `supplier_materials`. Pairs 2 and 3 are structurally identical —
+junction table against its parent, twice — so the answers must have the same shape.
+They did not:
+
+2.1 can supplier_materials have several suppliers — NO (correct)
+2.2 can suppliers have several supplier_materials — (left blank)
+3.1 can supplier_materials have several materials — YES (wrong, should be NO)
+3.2 can materials have several supplier_materials — YES (correct)
+
+**Diagnosis, and it explains A2 as well.** The question "can X have several Y" is
+being read two different ways: sometimes as *one row of X*, sometimes as *table X as
+a whole*. Under the second reading the answer is always yes and the question carries
+no information.
+
+**Fix:** phrase it strictly in terms of a row — "can **one row** of
+`supplier_materials` reference several materials". The inversion then becomes
+impossible to write down.
+
+Second occurrence in two tasks. Key placement was correct both times, because it
+follows from the composite PK rather than from the answers — so the check again
+changed nothing. See pattern 11.
+
+---
+
+### A4. Cardinality re-derived for the wrong pairs
+
+For `estimate_items` I asked three pairs and inverted both junction pairs again —
+"can one row of estimate_items reference several materials — yes". The FK is a single
+column; the answer cannot be yes.
+
+**Two separate fixes came out of this.**
+
+*Mine to keep:* the mechanical test. A foreign key of one column holds one value, so
+one row references exactly one parent. No reasoning about the domain required.
+
+*The instructor's error, worth recording so the procedure is right:* the reverse
+question was being phrased as "can one row of `materials` reference several
+`estimate_items`", which is meaningless — a parent never references its children. The
+correct passive form is "can several rows of `estimate_items` reference **one row** of
+`materials`".
+
+**And the wider correction:** cardinality is asked *before* the structure exists,
+between entities. `estimates` ↔ `materials` — yes/yes — is what produced
+`estimate_items` in the first place. Once the junction table is written, its pairs
+with the parents are read off the columns, not re-derived.
  
 ---
  
@@ -121,6 +178,25 @@ sort_order integer NULL
 **Wrong because:** nullable is the default. The keyword exists only for compatibility
 with other systems and carries no meaning. It had already been flagged and was left
 in place on the next revision.
+
+### B4. `NOT NULL` written inside the `REFERENCES` clause — three times in one statement
+
+```sql
+estimate_id bigint CONSTRAINT ..._fk REFERENCES estimates (id) NOT NULL ON DELETE CASCADE
+```
+
+`REFERENCES` and `ON DELETE` are one constraint; `NOT NULL` between them ends the
+foreign key definition and strands the action. Class 42.
+
+The four preceding tables were all written correctly, with `NOT NULL` first. On the
+fifth the order was swapped — and swapped in all three foreign keys of the statement.
+
+**Then, fixing it:** two of the three were repaired, the third lost the keyword `ON`
+and became `DELETE RESTRICT`. Same mechanism as F1, this time inside a single
+statement rather than across a task list.
+
+**Rule:** after editing several identical constructs, read them side by side. They
+must look the same down to the names.
  
 ---
  
@@ -243,6 +319,7 @@ time, not at table creation.
 | First `CREATE TABLE units` | code plus three questions | code only |
 | Second attempt | remove `NULL`, answer three questions | neither |
 | `suppliers` + `sites` | code plus three questions | code only |
+| `estimate_items`, fixing three FKs | `ON DELETE` restored in all three | two of three |
  
 **Why it matters here specifically:** a migration applied halfway leaves the database
 in a state that exists in no version of the schema — not the old one, not the new one.
@@ -271,25 +348,25 @@ is more than any single repeat across the whole of Topic 1.
 9. **Run the experiment** instead of arguing about what the parser accepts.
 10. **A rule written in a file is not yet a rule available in the head.** The gap
     closes on exercises, not on rewrites.
-11. **A check whose result changes nothing is not a check.** Verify that the
-    conclusion follows from the answers, not from the source the answers were
-    supposed to test.   
+11. **A check whose result changes nothing is not a check.** Verify the conclusion
+    follows from the answers. Ask cardinality between entities, before the structure
+    exists; afterwards, read it off the columns — a single-column FK is always "one".
 ---
  
 ## Scorecard — Topic 2 (in progress)
  
 | | Count |
 |---|---|
-| Foreign key semantics | 1 |
-| Constraint syntax | 3 |
+| Foreign key semantics | 4 |
+| Constraint syntax | 4 |
 | Data types | 3 |
 | NULL semantics | 2 |
 | Defaults | 1 |
 | Process | 1 |
-| **Total so far** | **11** |
+| **Total so far** | **15** |
  
 Repeats carried over from Topic 1: C1 (E5), D2 (rules 3.3 not reproduced),
-F1 (E6, ×4).
+F1 (E6, ×5).
  
 Applied correctly without prompting: dependency levels across all nine tables,
 including `supplier_materials` placed at the level of its **highest** parent;
