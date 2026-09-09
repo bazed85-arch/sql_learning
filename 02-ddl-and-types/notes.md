@@ -16,9 +16,10 @@ Database: Supabase project `construction-supply`, eu-central-1, PostgreSQL 17.6.
 | 0 | `suppliers`, `sites` | `<ts>_create_suppliers_sites.sql` |
 | 1 | `materials` | `<ts>_create_materials.sql` |
 | 1 | `estimates`, `deliveries` | `<ts>_create_estimates_deliveries.sql` |
+| 2 | `supplier_materials` | `<ts>_create_supplier_materials.sql` |
 
-Remaining: `supplier_materials`, `estimate_items`, `delivery_items` (level 2).
- 
+Remaining: `estimate_items`, `delivery_items` (level 2).
+
 ---
  
 ## Experiment 1 — breaking every constraint
@@ -164,6 +165,17 @@ indexes — `units_pk`, `units_code_uq`, `materials_pk`, `materials_article_no_u
 all backing a `PRIMARY KEY` or a `UNIQUE`. `materials.unit_id`, the column every
 future JOIN will use, has none. `PRIMARY KEY` and `UNIQUE` create an index
 automatically; `FOREIGN KEY` does not.
+
+**Literals are cast to the column type when the constraint is created, not per row.**
+
+Written as `CHECK (price >= 0)`, stored as `CHECK ((price >= (0)::numeric))`.
+`price` is `numeric`, the literal is `int`, and comparison needs one type — so the
+cast was resolved once, at parse time. Compare `lead_time_days >= 0`, stored
+unchanged: the column is `int`, the literal is `int`, nothing to reconcile.
+
+Reading the catalogue definition is therefore not the same as reading what was
+written. Expect `IN (...)` to appear as `= ANY (ARRAY[...])` and literals to carry
+explicit casts.
  
 ---
  
@@ -221,3 +233,17 @@ Candidate fix: scope uniqueness to supplier **and** year. Same shape as
 "unique within the parent vs globally", one level deeper.
 
 Not urgent — no data yet. Decide before the system holds a second year of deliveries.
+
+**5. `supplier_materials` has no surrogate key, and that is conditional.**
+
+The composite PK `(supplier_id, material_id)` is the natural key and is minimal, so a
+surrogate `id` would be a second identifier for the same row — redundant.
+
+It stops being redundant the moment the **same pair must repeat**. Price history,
+already listed under Deferred, does exactly that: supplier X / material Y gains a row
+from January, one from April, one from September. The PK then has to widen to
+`(supplier_id, material_id, valid_from)` or give way to a surrogate `id`.
+
+Second, less obvious condition: if another table ever needs to reference a specific
+price-list row, the child carries a two-column foreign key instead of one. Workable,
+awkward as the schema grows.
