@@ -197,6 +197,17 @@ statement rather than across a task list.
 
 **Rule:** after editing several identical constructs, read them side by side. They
 must look the same down to the names.
+
+### B5. Second typo in a constraint name
+
+`esimates_revision_chk` — missing `t`. Earlier this topic:
+`extimate_items_unit_price_chk`.
+
+The database accepts either silently; it is just an identifier. It surfaces months
+later in an error message, prefixed with a table that does not exist.
+
+**Check:** the constraint name starts with the table name, and the table name is on
+the same line, in `ALTER TABLE estimates`. Two words, side by side.
  
 ---
  
@@ -257,6 +268,22 @@ screen, satisfies `NOT NULL`, satisfies the `CHECK`, and cannot be found by
 
 **Root cause:** the conclusion of the analysis was not carried into the code. Same
 shape as D2 and C3 — the reasoning was done and then not used.
+
+### C5. `DEFAULT` mistaken for a constraint
+
+Asked whether `CHECK (revision > 0)` is needed alongside
+`revision int NOT NULL DEFAULT 1`, I answered no — "the default is 1".
+
+**Wrong because:** a default only applies when no value is supplied. An explicit
+`INSERT ... (revision) VALUES (0)` stores the zero, and `-5` likewise. `revision` is a
+counter starting at one; zero and negatives are meaningless, and nothing was stopping
+them.
+
+**Rule:** `DEFAULT` is convenience, `CHECK` is guarantee. See `rules.md` 7A.6.
+
+**Same shape as D1 and the empty-string case:** the constraint under discussion
+protects something other than what I assumed it protected. Third instance of this
+shape this topic.
  
 ---
  
@@ -320,6 +347,23 @@ The first half of the answer was right: a `DEFAULT` expression is evaluated at i
 time, not at table creation.
  
 [9.9.5 Current Date/Time](https://www.postgresql.org/docs/17/functions-datetime.html#FUNCTIONS-DATETIME-CURRENT)
+
+### E2. `ADD COLUMN` — answered about the storage mechanism, not the content
+
+Asked what lands in `revision` for forty pre-existing rows after
+`ADD COLUMN revision int NOT NULL DEFAULT 1`, I answered that the table would not be
+rewritten.
+
+**True but not the question.** The answer is that all forty rows get `1` — `ADD
+COLUMN` applies the default to existing rows, not only to future inserts.
+
+The second question — the same command *without* a `DEFAULT` — I answered "the same".
+It is not: the command fails with `23502`, because there is no value to put in the
+existing rows.
+
+**Root cause:** having framed the first answer around file rewriting, the second was
+answered in the same frame. The variable that changed was the availability of a value,
+not the method of writing.
  
 ---
  
@@ -395,12 +439,12 @@ it is actually run.
 | | Count |
 |---|---|
 | Foreign key semantics | 4 |
-| Constraint syntax | 4 |
-| Data types | 4 |
+| Constraint syntax | 5 |
+| Data types | 5 |
 | NULL semantics | 2 |
-| Defaults | 1 |
+| Defaults | 2 |
 | Process | 2 |
-| **Total so far** | **17** |
+| **Total so far** | **20** |
  
 Repeats carried over from Topic 1: C1 (E5), D2 (rules 3.3 not reproduced),
 F1 (E6, ×5).
