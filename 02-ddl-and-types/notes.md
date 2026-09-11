@@ -202,6 +202,38 @@ expression over two `NOT NULL` operands cannot produce `NULL`, so the constraint
 be a declaration with no work to do.
  
 ---
+
+## ALTER TABLE work — debts paid
+
+**Open question 1 — closed.** Five `CHECK` constraints added against empty strings:
+`units.name`, `suppliers.name`, `sites.name`, `materials.name`,
+`materials.article_no`. Expression `length(trim(col)) > 0` throughout. All five
+report `convalidated = true` — existing rows were checked and passed.
+
+**Open question 4 — closed.** Delivery note numbers are now unique per supplier *and
+year*:
+
+```sql
+ALTER TABLE deliveries
+  ADD COLUMN year_no int GENERATED ALWAYS AS (EXTRACT(YEAR FROM delivery_date)::int) STORED,
+  DROP CONSTRAINT deliveries_supplier_id_delivery_note_number_uq,
+  ADD CONSTRAINT deliveries_supplier_id_delivery_note_number_year_no_uq
+      UNIQUE (supplier_id, delivery_note_number, year_no);
+```
+
+One command, three actions — the third successfully referenced the column added by
+the first.
+
+**Known cost of this solution, recorded deliberately.** `year_no` exists *only* to
+serve the constraint. No report needs it, no screen shows it, the application never
+reads it. The alternative — a unique index on the expression
+`EXTRACT(YEAR FROM delivery_date)` — avoids the column but cannot be written as a
+table constraint in `CREATE TABLE`, so it cannot be documented in
+`schema-design.md` alongside the others. The column was chosen for documentability,
+and the redundancy is the price. Without this note the column will look like
+something someone forgot to delete.
+
+---
  
 ## Design decisions taken
  
@@ -234,6 +266,8 @@ Needs `CHECK` constraints, and two different kinds:
 
 Requires `ALTER TABLE` on tables that already hold data. Deferred to the `ALTER TABLE`
 step of this topic.
+
+**Closed.** See "ALTER TABLE work — debts paid".
  
 **2. `seed.sql` hardcodes `unit_id`.**
 The file assumes a clean database where `units` receives ids 1, 2, 3. Referencing
@@ -258,6 +292,8 @@ Candidate fix: scope uniqueness to supplier **and** year. Same shape as
 "unique within the parent vs globally", one level deeper.
 
 Not urgent — no data yet. Decide before the system holds a second year of deliveries.
+
+**Closed.** See "ALTER TABLE work — debts paid".
 
 **5. `supplier_materials` has no surrogate key, and that is conditional.**
 
