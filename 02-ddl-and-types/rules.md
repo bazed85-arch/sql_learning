@@ -475,6 +475,34 @@ constraint by adding a looser one is impossible — the old one has to go.
 [5.7 Modifying Tables](https://www.postgresql.org/docs/17/ddl-alter.html) ·
 [ALTER TABLE](https://www.postgresql.org/docs/17/sql-altertable.html)
 
+**7A.5 `ADD COLUMN ... NOT NULL DEFAULT x` fills the existing rows too.**
+
+The default is not only for future inserts — at `ADD COLUMN` time it populates every
+row already in the table. It has to: otherwise those rows would violate the `NOT NULL`
+the moment the column appears.
+
+Practical effect: forty estimates created before revisions existed become revision 1
+of themselves, with no data fixing required.
+
+**Without a `DEFAULT`, the same command fails** on a non-empty table — `23502`. There
+is nowhere for the value to come from. `NOT NULL` with no default can only be added to
+an empty table, or in two steps: add nullable, populate, then constrain.
+
+*Aside on rewriting, which is a different question:* since PostgreSQL 11 a
+**non-volatile** default (a constant like `1`) does not rewrite the table file —
+the value is supplied on read. A volatile default such as `now()` does rewrite, since
+each row gets its own value. This concerns speed on large tables, not the content.
+
+**7A.6 `DEFAULT` is a convenience; `CHECK` is a guarantee. Neither replaces the
+other.**
+
+`revision int NOT NULL DEFAULT 1` does nothing when a value *is* supplied:
+`INSERT ... (revision) VALUES (0)` stores a zero, and `-5` stores a minus five.
+A default applies only in the absence of a value.
+
+Same shape as `NOT NULL` failing to stop `''`: the constraint protects a different
+thing from the one being assumed.
+
 ---
  
 ## 7. What the database creates on its own
