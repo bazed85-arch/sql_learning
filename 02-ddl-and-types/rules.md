@@ -163,6 +163,16 @@ In a junction table, `supplier_id` and `material_id` are covered by both a compo
 
 One blocks duplicates, the other blocks references into nothing. Remove either and
 the matching class of garbage appears.
+
+**2A.2 Two foreign keys into the same table are ordinary; the column names carry the
+meaning.**
+
+`unit_conversions` references `units` twice. `unit_id` cannot appear twice, so the
+columns must be named for their roles: `from_unit_id`, `to_unit_id`. Named
+`unit_id_1` and `unit_id_2` the schema would behave identically and be unreadable.
+
+This shape — a table related to itself through an intermediate table — is common:
+employee and manager, category and parent category, part and assembly.
  
 ---
  
@@ -298,6 +308,24 @@ input, not a crafted value.
 `length(trim(NULL)) > 0` evaluates to `NULL`, and `CHECK` rejects only on `false`.
 So `NULL` passes and `''` is caught — exactly the wanted behaviour. This is the one
 place where the `CHECK`/`NULL` rule (5.1) helps instead of surprising.
+
+**5.6 `CHECK` works as long as everything it compares is in the current row.**
+
+That is the whole boundary, and it cuts both ways.
+
+Works: `CHECK (from_unit_id <> to_unit_id)`, `CHECK (planned_end_date >= start_date)`,
+`CHECK (line_no > 0)`. Two columns of one row, or one column against a constant.
+
+Does not work, and needs a trigger instead:
+
+| Wanted | Why `CHECK` cannot |
+|---|---|
+| the inverse factor equals `1 / factor` | needs two rows of the same table |
+| `to_unit_id` equals the material's `unit_id` | needs two tables |
+
+A constraint that cannot be expressed in the schema is the worst kind, because in
+practice it will not exist. That is an argument for designing the possibility of
+divergence out of the model rather than policing it.
  
 ---
  
@@ -391,6 +419,17 @@ One return type covers every field, including `seconds` with a fractional part.
 
 [10.4 Value Storage](https://www.postgresql.org/docs/17/typeconv-query.html) ·
 [9.9 Date/Time Functions](https://www.postgresql.org/docs/17/functions-datetime.html)
+
+**6.8 A factor and a measured quantity need different precision.**
+
+Money is counted to the cent because a cent is the smallest indivisible unit. A factor
+has no such unit — it is a multiplier, and its error is multiplied by the entire
+quantity it is applied to.
+
+`m² → sheet` for a 2500×1200 plasterboard is 0.3333333333: a repeating fraction with no
+exact value. At `numeric(14,2)` it becomes 0.33, and across 300 sheets that is a
+9-sheet discrepancy created purely by rounding. `numeric(20,10)` leaves an error below
+any physical measurement involved.
 
 ---
 
