@@ -2,7 +2,9 @@
 
 **Block 1 · Topic 1 — Relational model & schema design**
 Target DBMS: PostgreSQL 17.6 (Supabase)
-Status: design only — no SQL, no migrations yet.
+Status: implemented. All nine tables exist in PostgreSQL 17.6 (Supabase project
+`construction-supply`). DDL lives in `supabase/migrations/`; this file is the
+authoritative description and is kept in step with the database.
 
 Domain: construction sites, cost estimates, suppliers, deliveries.
 
@@ -24,6 +26,11 @@ Domain: construction sites, cost estimates, suppliers, deliveries.
 Reason for `snake_case`: PostgreSQL folds unquoted identifiers to lower case
 ([4.1.1 Identifiers and Key Words](https://www.postgresql.org/docs/17/sql-syntax-lexical.html)).
 `supplierMaterials` silently becomes `suppliermaterials` unless quoted everywhere.
+
+**Mandatory text columns carry `CHECK (length(trim(col)) > 0)` in addition to
+`NOT NULL`.** `NOT NULL` does not stop an empty string or a string of spaces, and a
+form submits `''` for a blank field. On a nullable column the same expression still
+works: `length(trim(NULL)) > 0` yields `NULL`, which `CHECK` passes.
 
 ### Type conventions
 
@@ -64,7 +71,7 @@ meaningful answer, not missing data.
 |---|---|---|---|
 | `id` | `bigint` | PK, generated always as identity | |
 | `code` | `text` | `UNIQUE`, `NOT NULL`, `CHECK (code = lower(trim(code)))` | NOT NULL because the code *is* the unit — a row without it cannot be displayed anywhere: not on a delivery note, not in an estimate, not in a dropdown. Also a closed reference list, filled in once, so there is no state where a unit exists but its code is unknown. Contrast with `materials.article_no`, which is nullable |
-| `name` | `text` | `NOT NULL` | Full name shown in UI |
+| `name` | `text` | `NOT NULL`, `CHECK (length(trim(name)) > 0)` | Full name shown in UI |
 | `sort_order` | `int` | nullable | Controls dropdown order; alphabetical is wrong here |
 
 Seed values: `pcs`, `bag`, `t`, `kg`, `m`, `m2`, `m3`, `l`.
@@ -80,8 +87,8 @@ instead of an `ALTER TABLE`, and the table can carry attributes later.
 | Column | Type | Constraints | Comment |
 |---|---|---|---|
 | `id` | `bigint` | PK, generated always as identity | |
-| `article_no` | `text` | `UNIQUE`, nullable | Our own article number — what people actually say out loud. Nullable: a material can be created before a number is assigned |
-| `name` | `text` | `NOT NULL` | Not UNIQUE: same name from two manufacturers = different materials |
+| `article_no` | `text` | `UNIQUE`, nullable, `CHECK (length(trim(article_no)) > 0)` | Our own article number — what people actually say out loud. Nullable: a material can be created before a number is assigned |
+| `name` | `text` | `NOT NULL`, `CHECK (length(trim(name)) > 0)` | Not UNIQUE: same name from two manufacturers = different materials |
 | `description` | `text` | nullable | Full spec: grade, dimensions, standard |
 | `unit_id` | `bigint` | `NOT NULL`, FK → `units.id`, `ON DELETE RESTRICT` | Catalogue unit of measure |
 | `category` | `text` | nullable | Avoids `LIKE '%cement%'` filtering |
@@ -98,7 +105,7 @@ the same material has different prices per supplier. See `supplier_materials`.
 | Column | Type | Constraints | Comment |
 |---|---|---|---|
 | `id` | `bigint` | PK, generated always as identity | Surrogate: tax id can change, row identity cannot |
-| `name` | `text` | `NOT NULL` | Legal or trade name |
+| `name` | `text` | `NOT NULL`, `CHECK (length(trim(name)) > 0)` | Legal or trade name |
 | `tax_id` | `text` | `UNIQUE`, nullable | Spanish NIF/CIF. `text` — leading zeros and letters exist. Multiple NULLs allowed by default |
 | `contact_person` | `text` | nullable | |
 | `phone` | `text` | nullable | Never numeric: `+34`, spaces, extensions |
@@ -116,7 +123,7 @@ the same material has different prices per supplier. See `supplier_materials`.
 |---|---|---|---|
 | `id` | `bigint` | PK, generated always as identity | |
 | `code` | `text` | `UNIQUE`, `NOT NULL` | Human-readable site code used in daily conversation |
-| `name` | `text` | `NOT NULL` | |
+| `name` | `text` | `NOT NULL`, `CHECK (length(trim(name)) > 0)` | |
 | `address` | `text` | nullable | |
 | `status` | `text` | `NOT NULL`, `CHECK (status IN ('planned','active','suspended','completed'))` | |
 | `start_date` | `date` | nullable | Calendar day, not a moment |
@@ -220,21 +227,26 @@ on their own. Applying one behaviour uniformly is the mistake.
 | `status` | `text` | `NOT NULL`, `CHECK (status IN ('draft','received','received_with_issues','rejected'))` | State of the document, not a calculation |
 | `notes` | `text` | nullable | |
 | `created_at` | `timestamptz` | `NOT NULL DEFAULT now()` | When the row entered the system |
+| `year_no` | `int` | generated always as `EXTRACT(YEAR FROM delivery_date)::int`, stored | Exists only to scope the note-number uniqueness to a year. Not displayed anywhere. See the note below |
  
-Additional constraint: `UNIQUE (supplier_id, delivery_note_number)`.
- 
+Additional constraint: `UNIQUE (supplier_id, delivery_note_number, year_no)`.
+
 **Why not a global `UNIQUE` on the note number.** It is the *supplier's* numbering.
 Supplier A issues note 1024, supplier B also issues note 1024 — both are valid.
 Uniqueness is scoped to the parent, the same shape as `UNIQUE (estimate_id, line_no)`.
- 
-**No `site_id` and no `estimate_id` on this table.**
-A delivery may carry materials for more than one site (recorded assumption 1), so a
-site reference on the header would contradict it. An estimate belongs to one site, so
-`estimate_id` here would contradict it too — and it would make deliveries outside any
-estimate impossible to record.
- 
-**No completeness status.** Whether a delivery is full or partial is derived by
-comparing quantities, not stored. See the note under `delivery_items`.
+
+**Why the year is part of it.** Suppliers reset their numbering each January. Note
+1024 of 2026 and note 1024 of 2027 are different documents that legitimately share a
+number. Scoped to supplier alone, the constraint accepts the first and rejects the
+second — a year after the schema was written, with nothing having changed to explain
+it.
+
+**Cost of the chosen form, recorded deliberately.** `year_no` is redundant: it is
+derivable from `delivery_date` and serves no query, screen or report. The alternative
+is a unique index on the expression `EXTRACT(YEAR FROM delivery_date)`, which avoids
+the column — but a unique index cannot be expressed as a table constraint and so
+cannot be documented in this file alongside the others. The column was chosen for
+documentability. Without this paragraph it will read as something forgotten.
  
 ---
  
