@@ -18,9 +18,12 @@ Database: Supabase project `construction-supply`, eu-central-1, PostgreSQL 17.6.
 | 1 | `estimates`, `deliveries` | `<ts>_create_estimates_deliveries.sql` |
 | 2 | `supplier_materials` | `<ts>_create_supplier_materials.sql` |
 | 2 | `estimate_items` | `<ts>_create_estimate_items.sql` |
+| 2 | `delivery_items` | `<ts>_create_delivery_items.sql` |
+| 1 | `unit_conversions` | `<ts>_unit_conversions.sql` |
+| 2 | `material_unit_conversions` | `<ts>_unit_conversions.sql` |
 
-Remaining: `delivery_items` (level 2).
-
+Eleven tables. The nine of the original design plus two added during the
+`ALTER TABLE` work.
 ---
  
 ## Experiment 1 — breaking every constraint
@@ -259,6 +262,71 @@ are different rows with different ids, so lines attach to their own version
 automatically. This is where the surrogate key pays for itself: had the FK referenced
 `estimates.number`, the lines of both revisions would be indistinguishable.
 
+### Unit conversion — Topic 1 open question, closed with two tables
+
+Two kinds of conversion factor exist, and they are facts at different levels.
+
+| | Determined by | Rows for a 500-material catalogue |
+|---|---|---|
+| `t → kg = 1000` | the pair of units | **1** |
+| cement: `bag → 25` | material *and* unit | one per material that ships packaged |
+
+A tonne is a thousand kilograms for cement, for sand, for rebar — the material is
+irrelevant. A bag is 25 kg for cement and 30 kg for dry mix — the material is the
+whole point. `bag` is not a unit of measure at all; it is packaging.
+
+**Why not one table.** The packaging table can express everything, at a price: the
+row `t → kg = 1000` would have to be repeated for every material, because in that
+table a factor cannot exist without one. Five hundred identical rows stating one
+fact. Correct one of them by mistake and 499 materials disagree with the 500th, with
+no constraint able to notice — each row is individually valid.
+
+**Why not the other one table.** `bag → kg` has no universal value, so the physical
+table cannot hold it.
+
+```sql
+CREATE TABLE unit_conversions (
+  from_unit_id bigint NOT NULL ... REFERENCES units(id) ON DELETE RESTRICT,
+  to_unit_id   bigint NOT NULL ... REFERENCES units(id) ON DELETE RESTRICT,
+  factor numeric(20,10) NOT NULL CHECK (factor > 0),
+  PRIMARY KEY (from_unit_id, to_unit_id),
+  CHECK (from_unit_id <> to_unit_id)
+);
+
+CREATE TABLE material_unit_conversions (
+  material_id  bigint NOT NULL ... REFERENCES materials(id) ON DELETE CASCADE,
+  from_unit_id bigint NOT NULL ... REFERENCES units(id) ON DELETE RESTRICT,
+  factor numeric(20,10) NOT NULL CHECK (factor > 0),
+  PRIMARY KEY (material_id, from_unit_id)
+);
+```
+
+**Three decisions inside these two tables.**
+
+*Inverse pairs are not stored.* `t → kg = 1000` is recorded; `kg → t = 0.001` is
+computed as `1 / factor`. Storing both duplicates one fact: change the bag weight from
+25 to 30 and forget the inverse, and the database asserts both 30 kg and 25 kg per bag
+simultaneously. No constraint can catch it — a `CHECK` sees one row, and these are two.
+The price is a more complicated query: look for the pair in either order and divide
+when it is the reverse. Paid once in code, against a silent data divergence.
+
+*`material_unit_conversions` has no `to_unit_id`.* The factor always converts into the
+material's base unit, which is already in `materials.unit_id`. Keeping the column would
+allow it to diverge from that, and a constraint tying them would have to compare two
+tables — outside what `CHECK` can express, so it would need a trigger. Same rule that
+governs `total`: a value derivable from others is not stored. Price: converting bags to
+tonnes takes two steps, bags → kg here and kg → t in `unit_conversions`.
+
+*`numeric(20,10)`, not `numeric(14,2)`.* A factor is a multiplier and its error is
+multiplied by the whole quantity; money has a smallest indivisible unit and a factor
+does not. One plasterboard sheet 2500×1200 is 3 m², so `m² → sheet` is 0.3333333333 —
+a repeating fraction with no exact value. At scale 2 it becomes 0.33, and over 300
+sheets that is a 9-sheet error invented by rounding.
+
+**First table in the schema with two foreign keys into the same table.** Only the
+column names make it readable: `from_unit_id` and `to_unit_id`. Named `unit_id_1` and
+`unit_id_2` it would work identically and be impossible to understand.
+
 ---
  
 ## Design decisions taken
@@ -300,9 +368,9 @@ The file assumes a clean database where `units` receives ids 1, 2, 3. Referencin
 units by `code` instead requires a subquery, and `SELECT` has not been covered yet.
 Revisit after Topic 5.
  
-**3. Carried over from Topic 1.**
-Estimate revisions (decision #2) — **closed**, see "Estimate revisions" above.
-Unit conversion — in progress.
+**3. Carried over from Topic 1 — both closed.**
+Estimate revisions (decision #2) — see "Estimate revisions" above.
+Unit conversion — see "Unit conversion" above.
 
 **4. `UNIQUE (supplier_id, delivery_note_number)` may be scoped too widely.**
 
