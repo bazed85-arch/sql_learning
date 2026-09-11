@@ -297,6 +297,50 @@ is an independent entity.
  
 Storing the planned quantity on a delivery line would be a 3NF violation: it is
 determined by the estimate, not by the delivery event. Duplicating it guarantees drift.
+
+### 10. `unit_conversions` — physical conversion factors
+
+| Column | Type | Constraints | Comment |
+|---|---|---|---|
+| `from_unit_id` | `bigint` | `NOT NULL`, FK → `units.id`, `ON DELETE RESTRICT` | Unit being converted from |
+| `to_unit_id` | `bigint` | `NOT NULL`, FK → `units.id`, `ON DELETE RESTRICT` | Unit being converted to |
+| `factor` | `numeric(20,10)` | `NOT NULL`, `CHECK (factor > 0)` | How many `to` units in one `from` unit |
+
+Primary key: `(from_unit_id, to_unit_id)`.
+Additional constraint: `CHECK (from_unit_id <> to_unit_id)`.
+
+**Material-independent factors only.** A tonne is a thousand kilograms whatever is
+being weighed. Packaging factors — a bag, a pallet, a bucket — belong in
+`material_unit_conversions`, because a bag of cement and a bag of dry mix weigh
+different amounts.
+
+**Only one direction is stored.** `kg → t` is computed as `1 / factor` from the
+`t → kg` row. Storing both would duplicate one fact, and no constraint could keep the
+two rows consistent — a `CHECK` sees one row.
+
+**Not every pair has a factor.** Mass does not convert to volume without a material.
+The table holds the conversions that exist, not every possible pair.
+
+---
+
+### 11. `material_unit_conversions` — packaging factors
+
+| Column | Type | Constraints | Comment |
+|---|---|---|---|
+| `material_id` | `bigint` | `NOT NULL`, FK → `materials.id`, `ON DELETE CASCADE` | Composition: the factor does not exist without the material |
+| `from_unit_id` | `bigint` | `NOT NULL`, FK → `units.id`, `ON DELETE RESTRICT` | Packaging unit: bag, pallet, bucket |
+| `factor` | `numeric(20,10)` | `NOT NULL`, `CHECK (factor > 0)` | How many of the material's **base** units in one `from` unit |
+
+Primary key: `(material_id, from_unit_id)`.
+
+**No `to_unit_id`.** The target is always `materials.unit_id`, the material's base
+unit. Storing it separately would allow the two to diverge, and a constraint tying
+them would have to compare two tables — beyond `CHECK`, so it would require a trigger.
+Price: bags to tonnes is two steps, bags → kg here and kg → t in `unit_conversions`.
+
+**Why `numeric(20,10)`.** A factor is a multiplier; its error scales with the whole
+quantity. `m² → sheet` for a 2500×1200 plasterboard is 0.3333333333, with no exact
+value. Rounded to two decimals it distorts a 300-sheet order by nine sheets.
  
 ---
 
