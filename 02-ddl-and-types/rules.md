@@ -277,6 +277,27 @@ A material with `unit_id = 2` stays that material whatever the unit is.
 Reference → `RESTRICT`.
 
 Applying one action uniformly across a table is the mistake, in either direction.
+
+**5.5 `NOT NULL` does not stop an empty string. Use `length(trim(col)) > 0`.**
+
+| Value | `col <> ''` | `length(col) > 0` | `length(trim(col)) > 0` |
+|---|---|---|---|
+| `'cement'` | passes | passes | passes |
+| `''` | caught | caught | caught |
+| `' '` | **passes** | **passes** | caught |
+| `'   '` | **passes** | **passes** | caught |
+
+The first two are the same expression written twice. Only the third catches the case
+that actually arrives: a FlutterFlow form where the user pressed space. That row is
+invisible in a list, breaks nothing, and cannot be found by `IS NULL`.
+
+`trim` removes spaces only — a tab still passes. Good enough: the target is real user
+input, not a crafted value.
+
+**On a nullable column the same expression needs no `OR col IS NULL`.**
+`length(trim(NULL)) > 0` evaluates to `NULL`, and `CHECK` rejects only on `false`.
+So `NULL` passes and `''` is caught — exactly the wanted behaviour. This is the one
+place where the `CHECK`/`NULL` rule (5.1) helps instead of surprising.
  
 ---
  
@@ -343,6 +364,34 @@ because of a time zone, while the paper note still says 1 March.
 The reverse swap is no better: `created_at` as `date` destroys ordering within the
 day, which is the only reason that column exists.
 
+**6.6 `::type` is a cast. `CAST(expr AS type)` is the same thing, spelled longer.**
+
+Three levels of permission, in `pg_cast.castcontext`:
+
+| Code | Name | Performed |
+|---|---|---|
+| `i` | implicit | automatically, anywhere |
+| `a` | assignment | automatically, **only when storing into a column** |
+| `e` | explicit | only when written out with `::` or `CAST` |
+
+`int → numeric` is implicit — nothing is lost. `numeric → int` is assignment only:
+the fractional part disappears, and PostgreSQL will not do that silently in the middle
+of an arbitrary expression, but will do it when writing into an `int` column.
+
+Consequence: `year_no int GENERATED ALWAYS AS (EXTRACT(YEAR FROM d)) STORED` compiles
+without complaint — the cast happens by itself. Write `::int` anyway, for the reason
+that `STORED` is written out: a silent conversion is behaviour the next reader has to
+deduce.
+
+**6.7 `EXTRACT` returns `numeric`, not `int`.**
+
+One return type covers every field, including `seconds` with a fractional part.
+`date_part()` is the same function with a different spelling and returns
+`double precision` — worse here, for the reasons in 6.1.
+
+[10.4 Value Storage](https://www.postgresql.org/docs/17/typeconv-query.html) ·
+[9.9 Date/Time Functions](https://www.postgresql.org/docs/17/functions-datetime.html)
+
 ---
 
 ## 6A. Generated columns
@@ -373,6 +422,58 @@ ordinary column. Reading `pg_attrdef` alone cannot tell a default from a generat
 column.
 
 [5.4 Generated Columns](https://www.postgresql.org/docs/17/ddl-generated-columns.html)
+
+---
+
+## 7A. ALTER TABLE
+
+**7A.1 `ALTER TABLE` runs against data that already exists — that is the whole
+difference from `CREATE TABLE`.**
+
+`ADD CONSTRAINT` validates every existing row. One violating row aborts the change
+entirely: the constraint is not added at all. There is no "applies to new rows only"
+and no partial result. A constraint added by `ALTER TABLE` binds the past as well as
+the future.
+
+`ADD CONSTRAINT ... NOT VALID` is the escape hatch: the constraint is recorded without
+checking existing rows and enforced only on rows inserted or updated afterwards.
+`VALIDATE CONSTRAINT` checks the backlog later. Built for the real case — a million
+rows, some of them dirty, a week of cleaning ahead, and new writes that must be
+protected today.
+
+`pg_constraint.convalidated` is the only way to tell afterwards whether the old rows
+were ever checked.
+
+**7A.2 Changes that must apply together go in one command.**
+
+`ALTER TABLE t ADD ..., DROP ..., ADD ...` is a single unit: if any action fails,
+none of them takes effect. Written as separate statements, each commits on its own,
+and a failure in the third leaves the table in a state described by no version of the
+schema.
+
+Concrete case from this topic: dropping the old `UNIQUE` and adding the wider one as
+two statements can leave the table with *neither* — duplicate delivery notes pass
+silently, and nobody notices until stock stops reconciling.
+
+Actions inside one command execute left to right, so a later action can use a column
+added by an earlier one. Ordering and rollback boundaries are separate concerns —
+sequencing is not a reason to split.
+
+*(The full solution is `BEGIN` / `COMMIT` around the migration file. Supabase CLI
+applies a migration inside a transaction; the dashboard SQL Editor does not.)*
+
+**7A.3 A constraint cannot be modified — only dropped and recreated.**
+
+`ALTER TABLE ... ALTER CONSTRAINT` exists but only changes `DEFERRABLE`. The column
+list of a constraint never changes.
+
+**7A.4 Constraints accumulate; they do not supersede one another.**
+
+A row must satisfy all of them at once, so the stricter always wins. "Widening" a
+constraint by adding a looser one is impossible — the old one has to go.
+
+[5.7 Modifying Tables](https://www.postgresql.org/docs/17/ddl-alter.html) ·
+[ALTER TABLE](https://www.postgresql.org/docs/17/sql-altertable.html)
 
 ---
  
@@ -434,6 +535,20 @@ which remain in the catalog as holes.
  
 A file describing thirteen constraints when the database holds six is a defect, even
 though both "work". The repository is only useful while it matches reality.
+
+**8.3 The catalogue stores a parse tree, not your text.**
+
+Four canonicalisations seen in this topic alone:
+
+| Written | Stored |
+|---|---|
+| `IN ('a','b')` | `= ANY (ARRAY['a','b'])` |
+| `price >= 0` | `price >= (0)::numeric` |
+| `trim(name)` | `TRIM(BOTH FROM name)` |
+| `EXTRACT(YEAR FROM d)::int` | `(EXTRACT(year FROM d))::integer` |
+
+Comparing a migration against the catalogue character by character is meaningless.
+Compare meaning.
  
 ---
  
