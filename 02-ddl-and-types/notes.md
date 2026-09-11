@@ -233,6 +233,32 @@ table constraint in `CREATE TABLE`, so it cannot be documented in
 and the redundancy is the price. Without this note the column will look like
 something someone forgot to delete.
 
+### Estimate revisions — Topic 1 decision #2, closed in the schema
+
+```sql
+ALTER TABLE estimates
+  ADD COLUMN revision int NOT NULL DEFAULT 1,
+  DROP CONSTRAINT estimates_number_uq,
+  ADD CONSTRAINT estimates_number_revision_uq UNIQUE (number, revision),
+  ADD CONSTRAINT estimates_revision_chk CHECK (revision > 0);
+```
+
+**Model shift worth stating plainly.** An "estimate" is now an abstraction — the set of
+rows sharing a `number`. Only revisions exist physically. A row in `estimates` is no
+longer an estimate; it is a version of one.
+
+**Why `created_at` is not part of the key.** `(number, created_at)` would technically
+work, but two revisions created in one transaction share a `created_at` to the
+microsecond — `now()` does not advance inside a transaction — so the second would be
+rejected. And a user says "version 2", not "the version from 14 March 11:42:07.318".
+An explicit `revision int` is the key; `created_at` stays as a fact, not an identifier.
+
+**`estimate_items` needed no change at all.** `estimate_id` references
+`estimates.id` — the surrogate key of a *row*, i.e. of a revision. Revisions 1 and 2
+are different rows with different ids, so lines attach to their own version
+automatically. This is where the surrogate key pays for itself: had the FK referenced
+`estimates.number`, the lines of both revisions would be indistinguishable.
+
 ---
  
 ## Design decisions taken
@@ -274,9 +300,9 @@ The file assumes a clean database where `units` receives ids 1, 2, 3. Referencin
 units by `code` instead requires a subquery, and `SELECT` has not been covered yet.
 Revisit after Topic 5.
  
-**3. Carried over from Topic 1, still open.**
-Estimate revisions (decision #2) and unit conversion. Both are changes to an existing
-populated schema, so both belong to the `ALTER TABLE` step.
+**3. Carried over from Topic 1.**
+Estimate revisions (decision #2) — **closed**, see "Estimate revisions" above.
+Unit conversion — in progress.
 
 **4. `UNIQUE (supplier_id, delivery_note_number)` may be scoped too widely.**
 
@@ -307,4 +333,29 @@ from January, one from April, one from September. The PK then has to widen to
 
 Second, less obvious condition: if another table ever needs to reference a specific
 price-list row, the child carries a two-column foreign key instead of one. Workable,
-awkward as the schema grows.
+awkward as the schema grows
+
+**6. Revisions exist; "the current revision" is not defined.**
+
+The schema can now hold several versions of one estimate. Nothing says which one is in
+force. Three things remain undecided, none of them solvable in DDL:
+
+- *Which revision is current* — the highest number, or the highest among `approved`?
+  A draft revision 4 must not displace an approved revision 3.
+- *Who assigns the number* — currently the application must compute `max(revision) + 1`
+  itself. Two concurrent attempts produce the same number and the second fails on the
+  `UNIQUE`. The rejection is correct; the user still has to be shown something.
+- *Status lives on the revision, not on the estimate.* One `number` may legitimately
+  have an `approved` version 2 and a `draft` version 3 at the same time. That is a
+  normal state, not an error.
+
+Two candidate mechanisms for "current", with their failure modes:
+
+| Approach | Danger |
+|---|---|
+| `is_current boolean` | nothing guarantees exactly one `true` per `number`. The app sets it on revision 3 and forgets to clear it on 2 — two current versions, and a report counts both. A plain `UNIQUE` cannot express "at most one `true` per group"; a partial unique index can, but again cannot be documented as a table constraint |
+| compute on the fly | "highest revision" is not the same as "in force" — see the draft case above. The definition has to be qualified by status, and every read needs a grouped subquery |
+
+Leaning toward computing it, with an explicit written definition of "in force": a flag
+is easy to add later and hard to remove from a running system. Revisit after the
+`SELECT` topic.
