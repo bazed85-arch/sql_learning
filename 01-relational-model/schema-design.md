@@ -165,12 +165,21 @@ is catalogued in bags, this table needs its own `unit_id`.
 | `id` | `bigint` | PK, generated always as identity | |
 | `site_id` | `bigint` | `NOT NULL`, FK → `sites.id`, `ON DELETE RESTRICT` | FK sits on the "many" side |
 | `number` | `text` | `UNIQUE`, `NOT NULL` | Human-readable document number |
+| `revision` | `int` | `NOT NULL DEFAULT 1`, `CHECK (revision > 0)` | Version number of this estimate. A row is a *version*, not an estimate |
 | `status` | `text` | `NOT NULL`, `CHECK (status IN ('draft','sent','approved','rejected'))` | |
 | `estimate_date` | `date` | `NOT NULL` | Calendar fact |
 | `valid_until` | `date` | nullable | |
 | `currency` | `text` | `NOT NULL DEFAULT 'EUR'` | |
 | `notes` | `text` | nullable | |
 | `created_at` | `timestamptz` | `NOT NULL DEFAULT now()` | |
+
+Additional constraint: `UNIQUE (number, revision)`.
+
+**A row here is a revision, not an estimate.** The estimate is the set of rows sharing
+a `number`. Estimate 2026-014 sent to the client, then amended, produces a second row
+with the same `number` and `revision = 2`; the first is preserved untouched.
+
+**Which revision is in force is not encoded here.** See `notes.md`, open question 6.
 
 **No FK to `estimate_items`.** One estimate has many items; one item belongs to one
 estimate. The single `estimate_id` on the child expresses the whole relationship.
