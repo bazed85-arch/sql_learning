@@ -117,6 +117,22 @@ correct passive form is "can several rows of `estimate_items` reference **one ro
 between entities. `estimates` ↔ `materials` — yes/yes — is what produced
 `estimate_items` in the first place. Once the junction table is written, its pairs
 with the parents are read off the columns, not re-derived.
+
+### A5. `CHECK` declared incapable of something it can do
+
+Asked whether `from_unit_id = to_unit_id` can be forbidden by a `CHECK`, I answered no
+— "it only sees one row".
+
+**The premise is right and the conclusion is backwards.** Both columns are *in* that
+one row. Comparing them to each other is precisely what a `CHECK` is for.
+
+**Rule:** `CHECK` works while everything compared lies in the current row. It fails
+only when a second row or a second table is needed — see `rules.md` 5.6.
+
+**Root cause:** "sees one row" had been stored as a limitation without its scope.
+Two genuine failures of `CHECK` had been discussed minutes earlier (the inverse factor,
+the cross-table equality), and the limitation was carried over to a case it does not
+apply to. A rule remembered without its boundary fires in the wrong place.
  
 ---
  
@@ -208,6 +224,22 @@ later in an error message, prefixed with a table that does not exist.
 
 **Check:** the constraint name starts with the table name, and the table name is on
 the same line, in `ALTER TABLE estimates`. Two words, side by side.
+
+### B6. Semicolon instead of a comma between two table constraints
+
+```sql
+CONSTRAINT unit_conversions_pk PRIMARY KEY (from_unit_id, to_unit_id);
+CONSTRAINT unit_conversions_units_differ_chk CHECK (from_unit_id <> to_unit_id)
+```
+
+A semicolon ends the statement. The parser takes `CREATE TABLE` to have finished at
+`PRIMARY KEY (...)` — with no closing bracket — and fails; the `CHECK` line is then
+left as something that is not a command at all.
+
+**Mirror image of the `supplier_materials` error**, where the comma before
+`CONSTRAINT ... PRIMARY KEY` was missing entirely. Both at the same seam: the
+boundary between column definitions and table constraints. Worth checking as its own
+step.
  
 ---
  
@@ -438,13 +470,13 @@ it is actually run.
  
 | | Count |
 |---|---|
-| Foreign key semantics | 4 |
-| Constraint syntax | 5 |
+| Foreign key semantics | 5 |
+| Constraint syntax | 6 |
 | Data types | 5 |
 | NULL semantics | 2 |
 | Defaults | 2 |
 | Process | 2 |
-| **Total so far** | **20** |
+| **Total so far** | **22** |
  
 Repeats carried over from Topic 1: C1 (E5), D2 (rules 3.3 not reproduced),
 F1 (E6, ×5).
