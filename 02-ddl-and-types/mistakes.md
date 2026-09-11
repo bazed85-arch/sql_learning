@@ -243,6 +243,20 @@ Identical to 1/3 in decimal — the analogy was already written in `rules.md` 2.
 Topic 1 and was not connected to the question.
  
 [8.1.3 Floating-Point Types](https://www.postgresql.org/docs/17/datatype-numeric.html#DATATYPE-FLOAT)
+
+### C4. `<> ''` chosen after the comparison had already been worked through
+
+Wrote `CHECK (name <> '')` in all five constraints, one exchange after establishing
+that `length(trim(name)) > 0` is the form that catches a single space — the value a
+form actually submits when the user presses the space bar.
+
+**Wrong because:** `<> ''` and `length() > 0` are the same test written twice. Neither
+sees `' '`. The material ends up in the catalogue with a name that looks empty on
+screen, satisfies `NOT NULL`, satisfies the `CHECK`, and cannot be found by
+`IS NULL`.
+
+**Root cause:** the conclusion of the analysis was not carried into the code. Same
+shape as D2 and C3 — the reasoning was done and then not used.
  
 ---
  
@@ -329,6 +343,28 @@ part that did apply is now invisible.
 **Repeat of E6 in Topic 1** ("answering a different question than the one asked"),
 in the form "doing part of what was listed". Four occurrences in a single session
 is more than any single repeat across the whole of Topic 1.
+
+### F2. Rollback boundary confused with execution order
+
+Asked whether three actions on one table should be one `ALTER TABLE` or three, I
+answered "three, because the column has to exist before the constraint uses it".
+
+**Wrong because:** actions inside one `ALTER TABLE` also execute left to right. The
+comma does not reorder them — and a later action can use a column added by an earlier
+one, which the run confirmed.
+
+The criterion is not sequencing but **what survives a failure**:
+
+| | third action fails |
+|---|---|
+| one command | full rollback, table unchanged |
+| three commands | column added, old constraint dropped, new one missing — **duplicate delivery notes pass silently** |
+
+**Rule:** changes that must apply together go in one command. See `rules.md` 7A.2.
+
+Noted in passing: my own follow-up — "maybe the answer to question 1 was wrong" —
+reached the right doubt from question 3 without being told. The self-check works when
+it is actually run.
  
 ---
  
@@ -360,11 +396,11 @@ is more than any single repeat across the whole of Topic 1.
 |---|---|
 | Foreign key semantics | 4 |
 | Constraint syntax | 4 |
-| Data types | 3 |
+| Data types | 4 |
 | NULL semantics | 2 |
 | Defaults | 1 |
-| Process | 1 |
-| **Total so far** | **15** |
+| Process | 2 |
+| **Total so far** | **17** |
  
 Repeats carried over from Topic 1: C1 (E5), D2 (rules 3.3 not reproduced),
 F1 (E6, ×5).
