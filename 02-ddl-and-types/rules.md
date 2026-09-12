@@ -58,6 +58,15 @@ two formats breaks `db push`.
  
 [CREATE TABLE](https://www.postgresql.org/docs/17/sql-createtable.html) ·
 [5.1 Table Basics](https://www.postgresql.org/docs/17/ddl-basics.html)
+
+**1.5 A repository describes the database only once it has been used to rebuild it.**
+
+Drop the schema, replay the migrations in timestamp order, apply `seed.sql`, compare.
+Until that has been done, the claim that the migrations reproduce the database is a
+hope.
+
+Done at the end of this topic: eleven tables, 58 constraints, identical result. Worth
+repeating whenever a migration is added by hand rather than generated.
  
 ---
  
@@ -464,6 +473,21 @@ column.
 
 ---
 
+## 7. What the database creates on its own
+ 
+**7.1 `PRIMARY KEY` and `UNIQUE` create a unique index automatically.**
+ 
+Uniqueness cannot be enforced without one — the alternative is a full table scan per
+insert. `FOREIGN KEY` creates **no** index on the referencing column. That asymmetry
+is deliberate and is a separate design decision.
+ 
+**7.2 An identity column creates a sequence owned by that column.**
+ 
+`units_id_seq owned by units.id`. Ownership means it is dropped together with the
+table. Not a free-standing object to manage separately.
+
+---
+
 ## 7A. ALTER TABLE
 
 **7A.1 `ALTER TABLE` runs against data that already exists — that is the whole
@@ -544,18 +568,52 @@ thing from the one being assumed.
 
 ---
  
-## 7. What the database creates on its own
- 
-**7.1 `PRIMARY KEY` and `UNIQUE` create a unique index automatically.**
- 
-Uniqueness cannot be enforced without one — the alternative is a full table scan per
-insert. `FOREIGN KEY` creates **no** index on the referencing column. That asymmetry
-is deliberate and is a separate design decision.
- 
-**7.2 An identity column creates a sequence owned by that column.**
- 
-`units_id_seq owned by units.id`. Ownership means it is dropped together with the
-table. Not a free-standing object to manage separately.
+## 7B. DROP TABLE
+
+**7B.1 Without `CASCADE`, tables drop in the reverse order of creation.**
+
+A table cannot be dropped while a foreign key points at it. Order matters: level 2
+first, level 0 last — referencing tables before referenced ones. The dependency levels
+built for creation are read bottom-up here.
+
+The refusal is `2BP01`, `dependent_objects_still_exist` — class 2B, not 23. Nothing is
+wrong with the data; PostgreSQL is declining to remove an object that others depend on.
+
+**7B.2 `DROP TABLE ... CASCADE` removes dependent *objects*, not dependent tables.**
+
+`DROP TABLE units CASCADE` drops the foreign keys that referenced `units`. The tables
+holding them — `materials`, `estimate_items`, `delivery_items`, `unit_conversions` —
+survive, along with their data, minus the referential integrity they used to have.
+
+That is what makes it more dangerous than it looks: after a mistaken `CASCADE` the
+database still works and quietly starts accumulating references to nothing.
+
+Not every dependent object behaves like a foreign key. A view built on the table is
+dropped entirely, because a view cannot exist without what it selects from.
+
+**7B.3 Two different `CASCADE`s.**
+
+| | Fires on | Removes |
+|---|---|---|
+| `ON DELETE CASCADE` | a parent **row** is deleted | the child rows |
+| `DROP TABLE ... CASCADE` | a **table** is dropped | objects depending on it — constraints, views |
+
+The first is about data, the second about structure. The shared keyword is historical.
+
+Note also what `ON DELETE CASCADE` does *not* do: it never deletes the parent row.
+That deletion is the command you issued; the cascade only follows.
+
+**7B.4 Everything owned by the table goes with it.**
+
+Indexes and constraints belong to the table and cannot exist without it. A sequence is
+different — one created by `CREATE SEQUENCE` is a free-standing object and survives
+anything. But an identity column's sequence is recorded as `owned by table.column`,
+and that ownership is what makes it drop alongside.
+
+So the answer depends on the ownership record, not on the object type. Confirmed by
+dropping all eleven tables: zero orphaned sequences, zero orphaned constraints.
+
+[DROP TABLE](https://www.postgresql.org/docs/17/sql-droptable.html)
  
 ---
  
