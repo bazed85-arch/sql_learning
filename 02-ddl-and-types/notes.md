@@ -361,19 +361,65 @@ a subquery — revisit after Topic 5.
  
 ## Design decisions taken
  
-**Surrogate keys stay `bigint GENERATED ALWAYS AS IDENTITY` across the whole schema.**
-`uuid` was considered and rejected. Criterion: can a row receive its id *before*
-reaching the database? No — the server issues every id at insert time. Offline
-creation of records is assumed not to be supported.
- 
-*This assumption belongs in `schema-design.md` → Assumptions, because if offline
-work is ever required the entire surrogate key layer changes at once.*
- 
-Note that `auth.users.id` is `uuid` (Supabase-owned table). Any future FK to a user
-will be a `uuid` column sitting next to `bigint` ones. That is correct: the type of a
-foreign key follows the type of the key it references, not house style.
- 
-Full write-up of the trade-off: to be added at the end of the session.
+### Surrogate keys: `bigint identity`, not `uuid`
+
+Decided early and applied to all eleven tables. Changing it later means rewriting the
+entire surrogate layer at once, so it is recorded in full.
+
+**Where the doubt comes from.** Glide, Firebase and Airtable hand out keys like
+`rec8fJk2Lm`. Not because that is better, but because of their architecture: the
+identifier is generated **on the client**, before the record reaches a server. Many
+clients, no coordination between them, a counter impossible — what remains is
+randomness long enough that collisions do not happen.
+
+With identity in PostgreSQL the server issues the number at insert time. One source,
+so no collisions by construction.
+
+**The criterion.** One question: *can a row receive its id before it reaches the
+database?*
+
+No → `bigint identity`. Yes → `uuid`.
+
+The second case is not hypothetical in construction supply: a foreman on site with no
+signal enters a goods receipt, and the data leaves when the connection returns. If the
+app creates the record locally and assigns the key there, `uuid` is required.
+
+**Assumption taken:** offline creation of records is not supported; every identifier
+is issued by the server. Recorded in `schema-design.md` → Assumptions, because if that
+ever changes the whole surrogate layer changes with it.
+
+**What `uuid` costs.**
+
+*Size.* 16 bytes against 8. `delivery_items` carries four foreign keys per row, so the
+multiplier is real and indexes grow with it.
+
+*Index locality.* `gen_random_uuid()` produces UUIDv4, fully random: every insert lands
+in a random position in the B-tree, pages split, writes get more expensive. UUIDv7
+fixes this — the first 48 bits are a timestamp, so values accumulate at the right edge
+of the index like a counter. But `uuidv7()` arrived in PostgreSQL 18 and this project
+runs 17; on 17 it means generating v7 in application code or installing an extension.
+
+*Readability.* On a building site numbers are spoken aloud. "Delivery note 4821"
+works; `018570bb-4a7d-7c7e…` does not.
+
+**Why readability turned out not to be the argument.** A surrogate id never needs to be
+shown to anyone. The schema already carries natural keys for that: `units.code`,
+`sites.code`, `materials.article_no`, `estimates.number`,
+`deliveries.delivery_note_number`. Separating surrogate from natural keys was done in
+Topic 1, and it removes this consideration entirely.
+
+**On security, honestly.** Sequential ids are visible through the API — PostgREST
+serves `/materials?id=eq.5`, and ascending numbers reveal business volume. The concern
+is real.
+
+But protection against reading someone else's rows is RLS, not an unguessable key. If
+a row is reachable by someone who should not reach it, a `uuid` only lengthens the
+search. Secrecy of an identifier is a weak model and cannot be relied on.
+
+**Mixed types are normal.** `auth.users.id` is `uuid` — a Supabase-owned table we did
+not design. When `created_by` or `received_by_user_id` appears it will be a `uuid`
+column sitting next to `bigint` ones. That is correct: the type of a foreign key
+follows the type of the key it references, not house style.
  
 ---
  
