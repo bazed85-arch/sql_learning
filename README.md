@@ -25,8 +25,13 @@ Part of a structured path toward backend development with Supabase.
 
 ## Notes
 
-Each folder contains my solutions with the task description as a comment,
-plus a `notes.md` file with what I learned and what I got wrong.
+Each topic folder contains three files:
+
+- `rules.md` — mechanisms stated as rules, written to be re-read before work
+- `mistakes.md` — errors made, each with the mechanism behind it, coded so
+  repeats can be traced across topics
+- `notes.md` — working notes: queries written while learning, experiment
+  results, catalog findings, open questions
 
 The `project-construction-db/` folder is not from a course — it's my own
 data model based on my background in construction and industrial supply,
