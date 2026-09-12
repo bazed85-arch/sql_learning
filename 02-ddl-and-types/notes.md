@@ -328,6 +328,36 @@ column names make it readable: `from_unit_id` and `to_unit_id`. Named `unit_id_1
 `unit_id_2` it would work identically and be impossible to understand.
 
 ---
+
+## Reproducibility check
+
+The schema was dropped entirely and rebuilt from the repository.
+
+**Drop.** Eleven tables, reverse creation order, no `CASCADE`. All succeeded — the
+order was right, since a wrong one would have raised `2BP01` at the first table with
+incoming references. After the drop: zero tables, **zero sequences, zero
+constraints**. Every identity sequence went with its table, because each is recorded
+as `owned by table.column`. No orphans to clean up.
+
+**Rebuild.** Seven migration files replayed in timestamp order, one at a time, then
+`seed.sql`. Result: 11 tables, 58 constraints, 5 rows — identical to the state before.
+
+**What this establishes.** The schema exists somewhere other than this one Supabase
+project. It can be stood up on another project, handed to another person, restored
+after a mistake. Before this check that was an assumption.
+
+**Side effect worth noting.** The new sequences start at 1, so `units` came back as
+`1:m3 2:kg 3:pcs` — the gaps accumulated during the session's failed inserts and
+deletions disappeared with the old sequences. Gaps are a property of a sequence's
+history, not of the data.
+
+**Open question 2 is not closed by this.** `seed.sql` hardcodes `unit_id = 2` and `3`,
+and they happened to land on `kg` and `pcs` because the database was empty. Run the
+same seed against a database that already has units and the cement silently ends up in
+the wrong unit. The match is guaranteed by an assumption, not a mechanism. Still needs
+a subquery — revisit after Topic 5.
+
+---
  
 ## Design decisions taken
  
@@ -367,6 +397,9 @@ step of this topic.
 The file assumes a clean database where `units` receives ids 1, 2, 3. Referencing
 units by `code` instead requires a subquery, and `SELECT` has not been covered yet.
 Revisit after Topic 5.
+Tested during the reproducibility check: on an empty database the ids do land on 1, 2,
+3 and the seed is correct. That is the assumption holding, not the problem being
+solved.
  
 **3. Carried over from Topic 1 — both closed.**
 Estimate revisions (decision #2) — see "Estimate revisions" above.
