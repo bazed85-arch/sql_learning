@@ -133,6 +133,28 @@ only when a second row or a second table is needed — see `rules.md` 5.6.
 Two genuine failures of `CHECK` had been discussed minutes earlier (the inverse factor,
 the cross-table equality), and the limitation was carried over to a case it does not
 apply to. A rule remembered without its boundary fires in the wrong place.
+
+### A6. Drop order declared irrelevant
+
+Asked in what order eleven tables must be dropped, I answered that the order does not
+matter — "what matters is how you drop them, `RESTRICT` or `CASCADE`".
+
+**Wrong because:** without `CASCADE` the order is the only thing that matters. A table
+cannot be dropped while a foreign key points at it — `2BP01`. The order is the reverse
+of creation: level 2 first, level 0 last.
+
+Reaching for `CASCADE` to make the order irrelevant is not a solution but a way around
+the problem, and it has a price: `CASCADE` drops the *constraints* that referenced the
+table while leaving the referencing tables and their data in place. Aimed at the wrong
+table, it leaves a database that still works and has silently lost its referential
+integrity.
+
+**Also imprecise in the same answer:** "`ON DELETE CASCADE` deletes the parent row and
+the child". It never deletes the parent — that deletion is the command issued. The
+cascade only follows it downward.
+
+**In practice the order was built correctly on the first attempt**, with no `2BP01` at
+any step. The rule was known; the answer about it was not.
  
 ---
  
@@ -466,17 +488,17 @@ it is actually run.
 
 ---
  
-## Scorecard — Topic 2 (in progress)
+## Scorecard — Topic 2
  
 | | Count |
 |---|---|
-| Foreign key semantics | 5 |
+| Foreign key semantics | 6 |
 | Constraint syntax | 6 |
 | Data types | 5 |
 | NULL semantics | 2 |
 | Defaults | 2 |
 | Process | 2 |
-| **Total so far** | **22** |
+| **Total** | **23** |
  
 Repeats carried over from Topic 1: C1 (E5), D2 (rules 3.3 not reproduced),
 F1 (E6, ×5).
@@ -485,3 +507,7 @@ Applied correctly without prompting: dependency levels across all nine tables,
 including `supplier_materials` placed at the level of its **highest** parent;
 cardinality asked in both directions on the `foremen` question, unprompted — the
 single most repeated structural failure of Topic 1.
+Added over the `ALTER TABLE` and `DROP TABLE` work: dependency order for dropping
+eleven tables, built correctly on the first attempt with no `2BP01`; the
+reference/composition criterion applied to twelve foreign keys without error; the
+rollback-boundary rule applied unprompted in every `ALTER TABLE` after the first.
