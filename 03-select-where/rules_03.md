@@ -10,10 +10,10 @@ to a new problem.
  
 Target: PostgreSQL 17 / Supabase.
  
-Status: partial. Covers clause evaluation order, the select list, column labels and
-`DISTINCT`. `WHERE`, the logical operators, `IN` / `BETWEEN` / `LIKE`, `ORDER BY`,
-`LIMIT` and NULL handling are added as the topic progresses — an empty section is
-honest, an invented rule is not.
+Status: partial. Covers clause evaluation order, the select list, `DISTINCT`, `WHERE`
+and three-valued logic. `IN` / `BETWEEN` / `LIKE`, `ORDER BY`, `LIMIT`, `COALESCE`,
+`NULLIF` and `IS DISTINCT FROM` are added as the topic progresses — an empty section
+is honest, an invented rule is not.
  
 ---
  
@@ -194,10 +194,162 @@ usually the query is missing a `WHERE` or the data model is wrong.
  
 ---
  
-## 4. String length
+## 4. The WHERE clause
+ 
+**4.1 A row is kept only when the condition evaluates to `true`.**
+ 
+[WHERE Clause](https://www.postgresql.org/docs/17/sql-select.html#SQL-WHERE): a row
+satisfies the condition if it returns true. Not "if it is not false" — `true`.
+ 
+With three possible results instead of two, this single sentence produces every NULL
+surprise in a query. `false` and `NULL` both mean "not returned", but they are not the
+same value and do not behave the same under `NOT`.
+ 
+**4.2 The condition is evaluated per row, in full.**
+ 
+There is no intermediate set. `WHERE` walks every row of the table expression,
+computes the whole expression — `NOT` and all — and keeps the row if the result is
+`true`. `NOT (...)` is not an operation applied to a previously selected set of rows;
+it is part of the expression computed for one row at a time.
+ 
+Getting this backwards turns `WHERE NOT (a AND b)` into "find the rows matching
+`a AND b`, then remove them", which predicts zero rows where the real answer can be
+most of the table.
+ 
+**4.3 A boolean column is a complete condition.**
+ 
+`WHERE is_active` and `WHERE is_active = true` are equivalent when the column is
+`NOT NULL`. The comparison adds nothing: comparing a boolean to a boolean returns the
+same boolean. `WHERE NOT is_active` is the negation.
+ 
+**4.4 Column labels are not available here.** See 1.2. Repeat the expression.
+ 
+---
+ 
+## 5. Three-valued logic
+ 
+**5.1 Any comparison involving NULL yields NULL**, not `true` and not `false`.
+`NULL = 'x'`, `NULL <> 'x'`, `NULL > 5` — all NULL. The value is unknown, so the
+answer to a question about it is unknown.
+ 
+**5.2 Truth tables.** [9.1 Logical Operators](https://www.postgresql.org/docs/17/functions-logical.html)
+ 
+`AND`:
+ 
+| | true | false | NULL |
+|---|---|---|---|
+| **true** | true | false | NULL |
+| **false** | false | false | **false** |
+| **NULL** | NULL | **false** | NULL |
+ 
+`OR`:
+ 
+| | true | false | NULL |
+|---|---|---|---|
+| **true** | true | true | **true** |
+| **false** | true | false | NULL |
+| **NULL** | **true** | NULL | NULL |
+ 
+`NOT`:
+ 
+| operand | result |
+|---|---|
+| true | false |
+| false | true |
+| **NULL** | **NULL** |
+ 
+Short form worth memorising: **`false` absorbs `AND`, `true` absorbs `OR`.** A known
+value that settles the outcome on its own settles it even when the other operand is
+unknown. In every other combination involving NULL the result is NULL.
+ 
+Verified: `SELECT null AND false` → false, `SELECT null OR true` → true,
+`SELECT null AND true` → NULL, `SELECT not null` → NULL.
+ 
+**5.3 `NOT` does not turn "unknown" into "known".**
+ 
+`WHERE NOT (condition)` does not return "all the other rows". It returns the rows for
+which the condition is **definitely false**. Rows where the condition is unknown
+appear in neither `WHERE condition` nor `WHERE NOT (condition)`.
+ 
+Consequence, the one that costs real query results: **negation is not complement while
+a nullable column is involved.** On 12 materials, 3 with `category = 'cement'` and 2
+with `category IS NULL`:
+ 
+```sql
+SELECT count(*) FROM materials WHERE category = 'cement';        -- 3
+SELECT count(*) FROM materials WHERE category <> 'cement';       -- 7, not 9
+SELECT count(*) FROM materials WHERE NOT (category = 'cement');  -- 7
+```
+ 
+3 + 7 = 10, not 12. The two unknown rows are in neither result.
+ 
+To include them, say so explicitly:
+ 
+```sql
+WHERE category <> 'cement' OR category IS NULL;                  -- 9
+```
+ 
+**5.4 `IS NULL` and `IS NOT NULL` always return `true` or `false`, never NULL.**
+That is what makes them usable in `WHERE`, and why no amount of `=`, `<>` or `NOT`
+can replace them. [9.2 Comparison Functions and Operators](https://www.postgresql.org/docs/17/functions-comparison.html)
+ 
+**5.5 Ask whether the column is nullable before writing the condition, not after
+getting a strange number.** The answer is in the schema. For `materials`: `name`,
+`unit_id`, `is_active` are `NOT NULL`; `article_no`, `description`, `category` are
+nullable.
+ 
+Where every column in the condition is `NOT NULL`, two-valued intuition is safe and
+`NOT` behaves like the word "not" — `WHERE is_active` and `WHERE NOT is_active` split
+12 rows into 11 and 1 with nothing lost. That safety is created by the constraints
+written in Topic 2, not by the query.
+ 
+**5.6 Procedure, until this is automatic.** For any condition touching a nullable
+column, do not compute in your head — write the groups out:
+ 
+1. list the row groups by the columns appearing in the condition;
+2. for each group evaluate each operand separately: `true`, `false` or `NULL`;
+3. combine with the truth table above;
+4. only groups yielding `true` are returned;
+5. sum the counts.
+**5.7 Operator precedence: `NOT` binds tighter than `AND`, `AND` tighter than `OR`.**
+[4.1.6 Operator Precedence](https://www.postgresql.org/docs/17/sql-syntax-lexical.html#SQL-PRECEDENCE)
+ 
+```sql
+WHERE category = 'cement' OR category = 'rebar' AND is_active = true
+-- parsed as:
+WHERE category = 'cement' OR (category = 'rebar' AND is_active = true)   -- 5 rows
+-- probably meant:
+WHERE (category = 'cement' OR category = 'rebar') AND is_active = true   -- 4 rows
+```
+ 
+Write the parentheses even where precedence already gives the intended reading. The
+cost is two characters; the failure mode is a query that returns plausible wrong
+numbers and no error. *(My assessment, not from the documentation.)*
+ 
+**5.8 `NOT (a AND b)` is hard to read and gets harder with nullable columns.**
+Prefer stating what should remain. *(My assessment.)*
+ 
+---
+ 
+## 6. String length
  
 `length(text)` and `char_length(text)` are the same function for `text` —
 `char_length` is the SQL-standard spelling.
 [9.4 String Functions](https://www.postgresql.org/docs/17/functions-string.html).
  
 `length(trim(col)) > 0` in the Topic 2 `CHECK` constraints is the same `length`.
+ 
+---
+ 
+## Checklist before running a query
+ 
+- [ ] Every identifier read back character by character against the schema
+- [ ] The column in the condition is the one the question is about
+- [ ] Condition read aloud as words — "and" or "or", "is" or "is not"
+- [ ] Every nullable column in the condition accounted for: are unknown rows meant to
+      be in the result or not?
+- [ ] `NOT (...)` checked for the rows it silently drops
+- [ ] Parentheses written around every `OR` inside an `AND`
+- [ ] Row count predicted from the data before running, not after seeing the result
+- [ ] Actual count compared against the prediction, and a mismatch investigated rather
+      than accepted
