@@ -10,10 +10,10 @@ to a new problem.
  
 Target: PostgreSQL 17 / Supabase.
  
-Status: partial. Covers clause evaluation order, the select list, `DISTINCT`, `WHERE`
-and three-valued logic. `IN` / `BETWEEN` / `LIKE`, `ORDER BY`, `LIMIT`, `COALESCE`,
-`NULLIF` and `IS DISTINCT FROM` are added as the topic progresses — an empty section
-is honest, an invented rule is not.
+Status: partial. Covers clause evaluation order, the select list, `DISTINCT`, `WHERE`,
+three-valued logic, `IN` / `BETWEEN`, `LIKE` / `ILIKE` and `ORDER BY`. `LIMIT` /
+`OFFSET`, `COALESCE`, `NULLIF` and `IS DISTINCT FROM` are added as the topic
+progresses — an empty section is honest, an invented rule is not.
  
 ---
  
@@ -331,7 +331,167 @@ Prefer stating what should remain. *(My assessment.)*
  
 ---
  
-## 6. String length
+## 6. IN, NOT IN, BETWEEN
+ 
+**6.1 Both are shorthand for things already known.**
+[9.24.2 IN / NOT IN](https://www.postgresql.org/docs/17/functions-comparisons.html),
+[9.2 Comparison Operators](https://www.postgresql.org/docs/17/functions-comparison.html)
+ 
+```sql
+x IN (a, b)        →  x = a OR x = b
+x NOT IN (a, b)    →  x <> a AND x <> b
+x BETWEEN a AND b  →  x >= a AND x <= b
+```
+ 
+Their NULL behaviour is not new semantics — it follows from the truth tables in
+section 5. Expand the shorthand, then apply the table.
+ 
+**6.2 `NOT IN` with a NULL anywhere in the list returns zero rows. Always.**
+ 
+`x <> NULL` is NULL for every row, and `AND` with NULL never yields `true` — it
+yields `false` or NULL. No row is ever kept, whatever the data.
+ 
+```sql
+SELECT count(*) FROM materials WHERE category NOT IN ('cement', NULL);   -- 0
+```
+ 
+No error, no warning, no rows. The failure reads as "there is no such data", so it
+sends you to check the table rather than the query. In real work the NULL arrives
+through a subquery — `WHERE id NOT IN (SELECT some_nullable_column FROM ...)` — where
+nobody typed it.
+ 
+**`IN` does not have this problem**: `category IN ('cement', NULL)` returns the three
+cements, because `true` absorbs `OR`. The asymmetry is exactly the asymmetry of the
+two truth tables.
+ 
+Rule: if NULL is possible in the list, do not use `NOT IN`. Use `NOT EXISTS`
+(Topic 6), or filter NULLs out of the list.
+ 
+**6.3 Two different failures, do not confuse them.**
+ 
+| Where the NULL is | Effect | Fix |
+|---|---|---|
+| in the **list** | zero rows, always | do not use `NOT IN` |
+| in the **column**, list clean | the rows where the column is NULL drop out | add `OR col IS NULL` if those rows are wanted |
+ 
+```sql
+-- 12 materials, 2 with article_no NULL, 2 matching the list
+SELECT count(*) FROM materials
+WHERE article_no NOT IN ('CEM-II-425', 'REBAR-12');       -- 8, not 10 and not 0
+```
+ 
+**6.4 `BETWEEN` includes both bounds, and the order of bounds matters.**
+`BETWEEN 23 AND 17` is `>= 23 AND <= 17` — impossible, zero rows. It does not sort the
+bounds.
+ 
+**6.5 `NOT BETWEEN` flips both comparisons and the connective.**
+ 
+```sql
+x NOT BETWEEN a AND b  →  NOT (x >= a AND x <= b)  →  x < a OR x > b
+```
+ 
+Strict, not inclusive: the bounds belong to `BETWEEN` and are therefore excluded from
+`NOT BETWEEN`. On a `NOT NULL` column the two are exact complements — 6 rows in the
+range, 6 outside, 12 in the table. That is a free check on the answer.
+ 
+---
+ 
+## 7. LIKE and ILIKE
+ 
+[9.7.1 LIKE](https://www.postgresql.org/docs/17/functions-matching.html)
+ 
+**7.1 `%` matches any number of characters, including none. `_` matches exactly one.**
+Everything else is literal.
+ 
+`code LIKE 'm_'` matches `m2` and `m3` but not `m` — `_` demands a character.
+`code LIKE 'm%'` matches all three.
+ 
+**7.2 The pattern must cover the whole string.** `name LIKE 'Cement'` is an equality
+test. "Starts with" needs a trailing `%`.
+ 
+**7.3 `ILIKE` is case-insensitive `LIKE`.** A PostgreSQL extension, not in the SQL
+standard; the portable form is `lower(col) LIKE lower(pattern)`.
+ 
+```sql
+name LIKE  '%plasterboard%'   -- 1 row  (PHONIQUE plasterboard)
+name ILIKE '%plasterboard%'   -- 2 rows (adds Plasterboard standard)
+```
+ 
+**7.4 NULL behaves as everywhere else.** `NULL LIKE anything` is NULL, so a row with a
+NULL column passes neither `LIKE` nor `NOT LIKE`.
+ 
+**7.5 To match `%` or `_` literally, escape them.** The default escape character is
+backslash; `ESCAPE` names a different one.
+ 
+```sql
+description LIKE '%\%%'              -- contains a percent sign
+description LIKE '%!%%' ESCAPE '!'   -- same thing, clearer
+```
+ 
+**The escape character cannot also be a wildcard.** `LIKE '%%%' ESCAPE '%'` does not
+work: declaring `%` as the escape character strips it of its wildcard role, leaving a
+pattern that matches a single literal `%` and ends in a dangling escape. Pick a
+character that appears in neither the pattern nor the data.
+ 
+---
+ 
+## 8. ORDER BY
+ 
+[ORDER BY Clause](https://www.postgresql.org/docs/17/sql-select.html#SQL-ORDERBY) ·
+[7.5 Sorting Rows](https://www.postgresql.org/docs/17/queries-order.html)
+ 
+**8.1 Sort by an output label, an ordinal number, or any expression** — including a
+column absent from the select list. `SELECT name FROM sites ORDER BY start_date` is
+valid.
+ 
+**8.2 Options are per expression, not per clause.** This holds for `ASC`/`DESC` and
+for `NULLS FIRST`/`NULLS LAST` alike.
+ 
+```sql
+ORDER BY a, b DESC              -- a ascending, b descending
+ORDER BY category, name NULLS LAST   -- NULLS LAST applies to name, not category
+ORDER BY category NULLS LAST, name   -- what was probably meant
+```
+ 
+**8.3 Default null placement: `NULLS LAST` with `ASC`, `NULLS FIRST` with `DESC`** —
+the default behaves as though NULL were larger than every value.
+ 
+This is a *sorting convention*, not a property of NULL. Nothing is larger or smaller
+than NULL; comparison with it yields NULL. The sort has to put the row somewhere and
+this is the choice PostgreSQL made.
+ 
+**8.4 `NULLS FIRST/LAST` and `ASC/DESC` are independent.** Using `DESC` to move NULLs
+to the top also reverses the values — two changes where one was wanted. State both
+explicitly whenever null placement matters to the result:
+ 
+```sql
+ORDER BY actual_end_date NULLS FIRST        -- unfinished sites first, dates ascending
+ORDER BY start_date DESC NULLS LAST         -- newest first, not-yet-started last
+```
+ 
+**8.5 Rows equal on every sort expression come back in an implementation-dependent
+order.** Add a tie-breaking key — a unique column — whenever the order has to be
+stable:
+ 
+```sql
+ORDER BY payment_terms_days, name
+```
+ 
+Two suppliers on 30-day terms are otherwise ordered arbitrarily, and the arbitrary
+choice can change between runs.
+ 
+**8.6 Sorting by an expression sets the grouping you want.**
+`ORDER BY is_active = false, name` puts active rows first, because the expression is
+`false` for them and `false` sorts before `true`. `ORDER BY is_active DESC, name` does
+the same thing more briefly. Either is fine; what has to be known is that **`false`
+sorts before `true`**.
+ 
+**8.7 Text sorts character by character** under the column's collation, and a space
+sorts before a letter — `Cement CEM I 52,5R` precedes `Cement CEM II/B-L 42,5N`.
+ 
+---
+ 
+## 9. String length
  
 `length(text)` and `char_length(text)` are the same function for `text` —
 `char_length` is the SQL-standard spelling.
@@ -353,3 +513,13 @@ Prefer stating what should remain. *(My assessment.)*
 - [ ] Row count predicted from the data before running, not after seeing the result
 - [ ] Actual count compared against the prediction, and a mismatch investigated rather
       than accepted
+- [ ] Answer checked a second way — the complement counted, or the total reconciled
+- [ ] `NOT IN`: can anything in the list be NULL? If yes, rewrite it
+- [ ] `BETWEEN`: low bound written first
+- [ ] `ORDER BY`: every option attached to the expression it belongs to
+- [ ] `ORDER BY`: a tie-breaking key added wherever the sort key is not unique
+- [ ] Answer verified from the other side — the complement, or the total minus the
+      excluded rows
+- [ ] `NOT IN`: is a NULL possible in the list? If yes, the query returns nothing
+- [ ] `ORDER BY`: is `NULLS FIRST/LAST` attached to the expression it belongs to?
+- [ ] `ORDER BY`: can two rows be equal on every key? If yes, add a tie-breaker
