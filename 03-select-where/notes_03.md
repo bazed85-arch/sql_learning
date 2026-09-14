@@ -183,6 +183,95 @@ SELECT name, char_length(name) AS name_length FROM materials;
  
 ---
  
+## Experiment 4 — NOT and NULL
+ 
+```sql
+SELECT null AND false, null OR true, null AND true, not null;
+-- false, true, NULL, NULL
+```
+ 
+`false` settles an `AND` and `true` settles an `OR` even when the other operand is
+unknown. Everything else involving NULL comes back NULL — including `NOT NULL`, which
+is the row that costs query results.
+ 
+Consequences measured on the 12 materials (3 cement, 2 with no category):
+ 
+```sql
+SELECT count(*) FROM materials WHERE category = 'cement';         -- 3
+SELECT count(*) FROM materials WHERE category <> 'cement';        -- 7
+SELECT count(*) FROM materials WHERE NOT (category = 'cement');   -- 7
+SELECT count(*) FROM materials WHERE category <> 'cement'
+                                  OR category IS NULL;            -- 9
+```
+ 
+3 + 7 = 10 of 12. Negation is not complement here, and `NOT` does not recover the
+missing rows — only `IS NULL` does. Written up as `rules.md` 5.3.
+ 
+The contrast case, on a `NOT NULL` column:
+ 
+```sql
+SELECT count(*) FROM materials WHERE is_active;        -- 11
+SELECT count(*) FROM materials WHERE NOT is_active;    -- 1
+```
+ 
+11 + 1 = 12, nothing lost. Two-valued intuition is safe there, and it is safe because
+of a Topic 2 constraint, not because of anything in the query.
+ 
+---
+ 
+## Practice — WHERE, comparisons, AND/OR/NOT
+ 
+```sql
+-- 1. name and article of active materials sold in bags. Predicted 2, actual 2.
+--    Query as first written had a typo: arcticle_no. See mistakes.md E1.
+SELECT name AS material_name, article_no AS article
+FROM   materials
+WHERE  unit_id = 2 AND is_active = true;
+ 
+-- 2. active materials in the cement and rebar categories. Predicted 4, actual 4.
+--    Without the parentheses: 5 — AND binds tighter, so the inactive cement
+--    joins the result through the left side of the OR.
+SELECT name FROM materials
+WHERE (category = 'cement' OR category = 'rebar') AND is_active = true;
+ 
+-- 3. materials whose name is longer than 25 characters. Predicted 3, actual 4.
+--    Missed XPS insulation board 50 mm (26). See mistakes.md F2.
+SELECT name, char_length(name) AS name_length
+FROM   materials
+WHERE  char_length(name) > 25;
+ 
+-- 4. every material except cement, including those with no category. Expected 9.
+--    First attempt returned 0: wrong column and AND instead of OR. mistakes.md E4.
+SELECT name FROM materials
+WHERE  category <> 'cement' OR category IS NULL;
+```
+ 
+---
+ 
+## Practice — ten row-count predictions
+ 
+Written before running, all ten checked against the database afterwards. 9 correct.
+ 
+| # | Condition | Predicted | Actual |
+|---|---|---|---|
+| 1 | `category IS NULL` | 2 | 2 |
+| 2 | `category IS NOT NULL AND is_active` | 9 | 9 |
+| 3 | `NOT (category = 'drywall')` | 8 | 8 |
+| 4 | `article_no IS NULL OR is_active = false` | 3 | 3 |
+| 5 | `unit_id <> 1 AND char_length(name) > 20` | 3 | 3 |
+| 6 | `NOT (article_no IS NULL)` | 10 | 10 |
+| 7 | `category = 'cement' AND NOT is_active` | 1 | 1 |
+| 8 | `unit_id = 4 OR unit_id = 7` | 4 | 4 |
+| 9 | `category <> 'aggregate' AND article_no IS NOT NULL` | **1** | **7** |
+| 10 | `NOT (category = 'rebar' OR category = 'cement')` | 5 | 5 |
+ 
+Number 3 is the one to notice: 8 rather than 10, because `NOT NULL` is NULL and the
+two uncategorised rows drop out. Same in 10: twelve minus two rebars, three cements
+and two unknowns.
+ 
+Number 9 is a misreading, not a logic failure — 1 is the correct answer for the same
+condition with `IS NULL`. See `mistakes.md` E3.
+ 
 ## Repository changes
  
 - `seed.sql` — `units` extended to eight rows, `materials` to twelve. Comments kept
@@ -235,3 +324,10 @@ SELECT name, char_length(name) AS name_length FROM materials;
   i.e. the default treats NULL as larger than any value. From the
   [ORDER BY Clause](https://www.postgresql.org/docs/17/sql-select.html#SQL-ORDERBY)
   section; not yet verified against the `units.sort_order` data.
+- Nullability in `materials`, the list to check before writing any condition:
+  `NOT NULL` — `id`, `name`, `unit_id`, `is_active`, `created_at`;
+  nullable — `article_no`, `description`, `category`.
+- The `WHERE` clause keeps a row when the condition returns `true`, stated in exactly
+  those words in [WHERE Clause](https://www.postgresql.org/docs/17/sql-select.html#SQL-WHERE).
+  `false` and NULL both mean "not returned" but are different values and behave
+  differently under `NOT` — which is where the whole topic turns.
