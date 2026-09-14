@@ -31,7 +31,7 @@ in Topic 2. The second was never checked and was carried forward as if it had be
  
 ---
  
-## Seed extended
+## Seed extended — units and materials
  
 `seed.sql` — the `units` and `materials` blocks replaced. State after the rebuild
 (drop → seven migrations → seed), verified by query:
@@ -272,10 +272,160 @@ and two unknowns.
 Number 9 is a misreading, not a logic failure — 1 is the correct answer for the same
 condition with `IS NULL`. See `mistakes.md` E3.
  
+---
+ 
+## Seed extended — suppliers and sites
+ 
+Added because `materials` carries only text, numbers and a boolean: dates and money
+had nowhere to come from, so `ORDER BY` on dates and `BETWEEN` on ranges were
+untestable. Structure read from `information_schema` and `pg_constraint` before
+writing a single row, not from memory of the Topic 2 migration.
+ 
+Constraints the data had to satisfy:
+ 
+- `sites.status` — `CHECK (status IN ('planned','active','suspended','completed'))`
+- `sites.code`, `suppliers.tax_id` — `UNIQUE`, the second one nullable
+- `suppliers.payment_terms_days` — `CHECK (>= 0)`
+- `name` in both — `CHECK (length(trim(name)) > 0)`
+State after the run, verified by query: 8 suppliers, 6 sites.
+ 
+| Planted | Makes observable |
+|---|---|
+| `tax_id IS NULL` ×2, under `UNIQUE` | the Topic 2 experiment, now as data rather than a test |
+| `payment_terms_days IS NULL` ×2, and `0` ×1 | "no terms agreed" against "pays on delivery" — NULL against zero |
+| terms 0, 15, 30, 30, 45, 60 | `BETWEEN` on numbers; the duplicated 30 forces a tie-breaker in `ORDER BY` |
+| `actual_end_date IS NULL` ×4 | the main material for `NULLS FIRST/LAST` |
+| `start_date IS NULL` ×1, `planned_end_date IS NULL` ×1 | a NULL landing mid-range when sorted, and a second nullable date in one table |
+| all four `status` values | `IN`, `NOT IN` |
+| TF-002 finished late, TF-006 early | comparison of two columns in one row — what `CHECK` can do and Topic 2 assumed it could not |
+ 
+Inserted without a rebuild: both tables were empty, so the two blocks were appended to
+`seed.sql` and run as they were. A `DROP` would have been ceremony.
+ 
+---
+ 
+## Experiment 5 — IN and NOT IN against NULL
+ 
+```sql
+SELECT count(*) FROM materials WHERE category IN ('cement', 'rebar');        -- 5
+SELECT count(*) FROM materials WHERE category NOT IN ('cement', 'rebar');    -- 5
+SELECT count(*) FROM materials WHERE category NOT IN ('cement', NULL);       -- 0
+SELECT count(*) FROM materials WHERE article_no IN ('CEM-II-425','REBAR-12', NULL);  -- 2
+SELECT count(*) FROM materials
+  WHERE article_no NOT IN ('CEM-II-425','REBAR-12');                         -- 8
+```
+ 
+Line 3 is the one to remember: zero rows for any data, because `x <> NULL` is NULL in
+every row and `AND` never reaches `true`. Line 4 shows why `IN` escapes the same fate —
+`true` absorbs `OR`, so the NULL operand is irrelevant for rows that match.
+ 
+Line 5 is a third case, distinct from both: the list is clean, the NULLs sit in the
+column, and only those two rows drop out. 12 − 2 matched − 2 unknown = 8.
+ 
+Checked against the schema afterwards: every foreign key column in this database is
+`NOT NULL`, so a `NOT IN` over a subquery of foreign keys cannot hit the trap here.
+That is a Topic 2 decision paying off in Topic 3 — the columns where a NULL would
+silently empty a result set were closed before any query existed. The exposure is in
+non-key nullable columns — `article_no`, `category`, `tax_id` — and in lists built
+outside the database.
+ 
+---
+ 
+## Experiment 6 — LIKE, ILIKE and ESCAPE
+ 
+```sql
+name LIKE  'Cement%'                      -- 3
+name LIKE  '%plasterboard%'               -- 1
+name ILIKE '%plasterboard%'               -- 2   adds Plasterboard standard
+article_no LIKE 'CEM%'                    -- 3   the two NULL article_no rows drop
+code LIKE 'm_'                            -- 2   m2, m3 — not m
+```
+ 
+`_` demands exactly one character, which is what separates it from `%`: `'m%'` would
+have returned all three unit codes.
+ 
+Escaping a literal percent sign:
+ 
+```sql
+'Discount 10% for orders' LIKE '%\%%'             -- true   default escape
+'Discount 10% for orders' LIKE '%!%%' ESCAPE '!'  -- true
+'Discount 10% for orders' LIKE '%%%' ESCAPE '%'   -- false  does not work
+'Bag 25 kg, palletised 1400 kg' LIKE '%\%%'       -- false
+```
+ 
+The failing line is the instructive one: naming `%` as the escape character strips it
+of its wildcard role, leaving "one literal percent" plus a dangling escape. An escape
+character cannot also be a wildcard.
+ 
+---
+ 
+## Experiment 7 — ORDER BY and nulls
+ 
+```sql
+SELECT code, start_date FROM sites ORDER BY start_date;
+-- TF-006 → TF-002 → TF-001 → TF-004 → TF-003 → TF-005(NULL)
+ 
+SELECT code, start_date FROM sites ORDER BY start_date DESC;
+-- TF-005(NULL) → TF-003 → TF-004 → TF-001 → TF-002 → TF-006
+```
+ 
+Defaults confirmed: `NULLS LAST` under `ASC`, `NULLS FIRST` under `DESC` — as though
+NULL were larger than everything. A convention of the sort, not a property of NULL.
+ 
+```sql
+ORDER BY planned_end_date ASC NULLS FIRST
+-- TF-004(NULL) → TF-006 → TF-002 → TF-001 → TF-003 → TF-005
+ 
+ORDER BY is_active = false, name
+-- 11 active rows, then the inactive one
+```
+ 
+The second is worth keeping: sorting by a computed boolean sets the grouping, because
+`false` sorts before `true`. `ORDER BY is_active DESC, name` is the shorter equivalent.
+ 
+Also observed: `Cement CEM I 52,5R` precedes `Cement CEM II/B-L 42,5N` — text compares
+character by character, and a space sorts before a letter.
+ 
+---
+ 
+## Practice — ORDER BY
+ 
+```sql
+-- suppliers by payment terms ascending, unagreed terms last
+SELECT name, payment_terms_days FROM suppliers
+ORDER BY payment_terms_days NULLS LAST;
+ 
+-- unagreed terms first, the rest descending
+-- first written as plain DESC, which relies on the default; this states it
+SELECT name, payment_terms_days FROM suppliers
+ORDER BY payment_terms_days DESC NULLS FIRST;
+ 
+-- sites newest first, the not-yet-started one at the bottom
+SELECT code, start_date FROM sites
+ORDER BY start_date DESC NULLS LAST;
+ 
+-- materials by category then name, uncategorised last
+-- first written as "ORDER BY category, name NULLS LAST" — right output, wrong query:
+-- the option attaches to name, which is NOT NULL. See mistakes.md G2.
+SELECT category, name FROM materials
+ORDER BY category NULLS LAST, name;
+ 
+-- deterministic order where two suppliers share 30-day terms
+SELECT name, payment_terms_days FROM suppliers
+ORDER BY payment_terms_days, name;
+ 
+-- sites in order of completion date, unfinished first
+SELECT code, actual_end_date FROM sites
+ORDER BY actual_end_date NULLS FIRST;
+```
+ 
 ## Repository changes
  
 - `seed.sql` — `units` extended to eight rows, `materials` to twelve. Comments kept
   in the existing style: each block states what the data is for.
+- `seed.sql` — `suppliers` and `sites` blocks appended, 8 and 6 rows, with the
+  nullable columns deliberately populated. Both tables were empty, so the blocks were
+  run as written; no rebuild needed.
 - `README.md` — the `## Notes` section described "solutions with the task description
   as a comment", which no topic folder actually contains. Replaced with a description
   of the three files that do exist. Same class of drift as the seed: the repository
@@ -294,12 +444,18 @@ condition with `IS NULL`. See `mistakes.md` E3.
    second run fails on `UNIQUE (code)`. Acceptable because the rebuild procedure
    established in Topic 2 — drop, migrations, seed — always starts clean. Revisit only
    if that procedure becomes inconvenient.
-3. **Nine tables still have no seed data.** `sites`, `suppliers`,
-   `supplier_materials`, `estimates`, `estimate_items`, `deliveries`,
-   `delivery_items`, `unit_conversions`, `material_unit_conversions`. Dates, numeric
-   money columns and nullable dates all live there, so `BETWEEN`, `ORDER BY` on dates
-   and most realistic `WHERE` practice needs them. Blocked on nothing — just not
-   written yet.
+3. **`sites` has no `CHECK` on date consistency.** Nothing stops
+   `actual_end_date` from preceding `start_date`, or a planned end before a start.
+   The seeded rows are consistent, but the constraint is missing. It would also be a
+   worked example of a `CHECK` comparing two columns of one row — the thing Topic 2
+   wrongly assumed `CHECK` could not do (`mistakes_02.md` A5). Worth adding as a
+   migration once the query topics are done.
+4. **Seven tables still have no seed data.** `supplier_materials`, `estimates`,
+   `estimate_items`, `deliveries`, `delivery_items`, `unit_conversions`,
+   `material_unit_conversions`. `units`, `materials`, `suppliers` and `sites` are
+   seeded, which covers text, booleans, numbers and dates; the remaining seven carry
+   the money columns and the line-item structure needed from Topic 4 onwards. Blocked
+   on nothing — just not written yet.
 ---
  
 ## Side facts collected
