@@ -178,7 +178,62 @@ The unanswered half was the part carrying the mechanism. See F1.
  
 **Rule:** `rules.md` 5.2.
  
+### B6. `NOT IN` with a NULL in the list — expansion written, truth table not applied
+ 
+Asked how many rows `WHERE category NOT IN ('cement', NULL)` returns, with the
+instruction to expand it and apply the truth table.
+ 
+**Answered:** 7, with the expansion written correctly as
+`category <> 'cement' AND category <> NULL`.
+ 
+**Wrong. Zero — and zero for any data whatsoever.** `category <> NULL` is NULL in
+every row, and `AND` with NULL yields `false` or NULL, never `true`. The expansion was
+right; it was simply not carried through to the table.
+ 
+**Why this one is the worst trap in the topic:** the result looks like "no matching
+data", which sends you to inspect the table instead of the query. And the NULL usually
+arrives through a subquery, not by hand.
+ 
+**Rule:** `rules.md` 6.2.
+**Source:** [9.24.2 NOT IN](https://www.postgresql.org/docs/17/functions-comparisons.html).
+ 
 ---
+ 
+### B7. The previous answer carried over by analogy
+ 
+Asked, immediately after B6, how many rows
+`WHERE article_no NOT IN ('CEM-II-425', 'REBAR-12')` returns — clean list, two NULLs
+in the column.
+ 
+**Answered:** "0 or 10 — going by the example in question 3, I think 0".
+ 
+**Wrong. 8.** The choice was made by analogy with the case just discussed rather than
+by working this one out. Both offered numbers were wrong in opposite directions: 0
+treats every row as poisoned, 10 ignores the NULLs entirely. The answer is 12 minus 2
+matches minus 2 unknown.
+ 
+A NULL **in the list** kills every row. A NULL **in the column** removes only its own
+row. Two different failures with different fixes.
+ 
+**Rule:** `rules.md` 6.3.
+ 
+---
+ 
+### B8. `NOT BETWEEN` treated as keeping the bounds
+ 
+Asked for the row count of `WHERE char_length(name) NOT BETWEEN 17 AND 23`.
+ 
+**Answered:** 10, on the reasoning that 17 and 23 are included, ">= and <=".
+ 
+**Wrong. 6.** Inclusion of the bounds belongs to `BETWEEN`; `NOT BETWEEN` negates the
+whole thing, which flips both comparisons and turns the `AND` into an `OR`:
+`len < 17 OR len > 23`. The bounds that were inside are therefore outside.
+ 
+`name` is `NOT NULL`, so the two queries are exact complements — and the previous
+question in the same block had already established 6 rows inside. 12 − 6 = 6, checkable
+in a second without recounting anything.
+ 
+**Rule:** `rules.md` 6.5.
  
 ## C. DISTINCT mechanics
  
@@ -284,13 +339,48 @@ not-cement and absent at once. The explanation given alongside it, that `WHERE` 
 passes `true` and a comparison with NULL yields NULL, was correct. The code did not
 follow from it.
  
-**Correct:** `WHERE category <> 'cement' OR category IS NULL`.
+**Correct for E4:** `WHERE category <> 'cement' OR category IS NULL`.
+ 
+### E5. Correct expansion, wrong count in the same sentence
+ 
+Asked for the row count of `WHERE category NOT IN ('cement', 'rebar')`.
+ 
+**Answered:** "6 rows — the NULL rows give NULL, neither true nor false".
+ 
+**Wrong. 5.** The explanation is exactly right and the arithmetic is not:
+12 − 3 cement − 2 rebar − 2 NULL = 5. The mechanism was stated and then not used on
+the numbers.
+ 
+### E6. Typo in a table name
+ 
+```sql
+SELECT name FROM material WHERE ...   -- ERROR: 42P01 relation "material" does not exist
+```
+ 
+The table is `materials`. Second typo of the topic, same mechanism as E1.
+ 
+### E7. Escape character chosen to be the wildcard itself
+ 
+Task: find rows whose description contains a literal `%`.
+ 
+**Written:** `LIKE '%%%' ESCAPE '%'`. **Result:** false on a string that does contain a
+percent sign.
+ 
+The construct was the right one to reach for — `ESCAPE` is exactly what the
+documentation offers here. But declaring `%` as the escape character strips it of its
+wildcard role everywhere in the pattern, leaving "one literal percent, then a dangling
+escape", which matches nothing.
+ 
+**Correct:** `LIKE '%\%%'` or `LIKE '%!%%' ESCAPE '!'`. Both verified true on the
+percent string and false without it.
+ 
+**Rule:** `rules.md` 7.5.
  
 ---
  
 ## F. Process
  
-### F1. Part of what was asked answered, the rest skipped — five times
+### F1. Part of what was asked answered, the rest skipped — six times
  
 | Question | Asked | Answered |
 |---|---|---|
@@ -299,8 +389,10 @@ follow from it.
 | B5 | row count **and** what happens to the NULL-category rows | a row count |
 | `NOT` question | two row counts **and** why `NOT` misbehaves in one of them | two numbers, "behaves as it should" |
 | ten predictions | ten numbers **and** a note on the NULL rows wherever a nullable column appears | ten numbers |
+| `ORDER BY` first block | the order of all six codes **and** the position of the NULL row | the position of the NULL row |
  
-In the first four the unanswered half was the part holding the mechanism: `ORDER BY`
+In the first four and the sixth the unanswered half was the part holding the
+mechanism: `ORDER BY`
 working is what shows the evaluation order matters; `HAVING` failing is what shows
 `GROUP BY` is an exception rather than a consequence; the NULL rows are the whole
 point of a NULL question.
@@ -330,26 +422,75 @@ predictions was answered correctly.
  
 ---
  
+## G. Sorting
+ 
+### G1. Three faults in one `ORDER BY` query
+ 
+Task: return sites in order of completion date, with unfinished ones first.
+ 
+**Written:**
+ 
+```sql
+SELECT sites, planned_end_date ORDER BY planned_end_date DESC;
+```
+ 
+- no `FROM` — `sites` would be read as a column name;
+- wrong column — "completion date" is `actual_end_date`; `planned_end_date` is filled
+  in for unfinished sites too, so it cannot express "unfinished first";
+- `DESC` solves half the task by accident: it does put NULLs on top, by default, but
+  it also reverses the dates, and the task asked for ascending order.
+**Correct:** `SELECT code, actual_end_date FROM sites ORDER BY actual_end_date NULLS FIRST;`
+ 
+**Rule:** `rules.md` 8.4 — placement of NULLs and sort direction are separate
+options; using one to achieve the other changes two things where one was wanted.
+ 
+### G2. `NULLS LAST` attached to the wrong expression
+ 
+**Written:** `ORDER BY category, name NULLS LAST` for "by category, then by name,
+uncategorised last".
+ 
+The option applies to `name`, which is `NOT NULL` — so it does nothing. The result
+matched the task anyway, because `ASC` on `category` defaults to `NULLS LAST`.
+ 
+**Correct:** `ORDER BY category NULLS LAST, name`.
+ 
+Worth logging even though the output was right: the same slip on a column where the
+default runs the other way would have produced a wrong order with no error.
+ 
+**Rule:** `rules.md` 8.2.
+ 
+---
+ 
 ## Recurring patterns to watch
  
 1. **`WHERE` keeps a row only when the condition is `true`.** `false` and NULL both
    mean "not returned", and they are not the same thing.
-2. **Any comparison with NULL is NULL.** `=`, `<>`, `>` — all of them. Only `IS NULL`
-   and `IS NOT NULL` return a definite answer.
+2. **Any comparison with NULL is NULL.** `=`, `<>`, `>`, `LIKE` — all of them. Only
+   `IS NULL` and `IS NOT NULL` return a definite answer.
 3. **`NOT` does not recover unknown rows.** Negation is not complement while a
    nullable column is in play.
 4. **`false` absorbs `AND`, `true` absorbs `OR`.** Everything else with NULL is NULL.
-5. **The condition is computed per row, in full.** There is no "select then invert".
-6. **Ask whether the column is nullable before writing the condition**, not after the
+   This one sentence explains why `IN` survives a NULL in the list and `NOT IN` does
+   not.
+5. **`NOT IN` with a NULL in the list returns nothing, silently.** Check the list
+   before using it.
+6. **The condition is computed per row, in full.** There is no "select then invert".
+7. **Ask whether the column is nullable before writing the condition**, not after the
    number looks odd. The answer is in the schema, not in the query.
-7. **A rule memorised without its scope fires in the wrong place.** NULLs are distinct
-   under `UNIQUE` and equal under `DISTINCT` — same data, opposite behaviour.
-8. **A prohibition follows from the evaluation order; a permission does not.**
-   `GROUP BY` and `ORDER BY` accept output labels because the documentation says so.
-9. **Read back every identifier and every operator before running.** Four of this
-   topic's errors were a typo, a swapped pairing, a dropped `NOT` and a wrong column.
-10. **Predict from the data, not from an impression of it.**
-11. **Finish everything that was asked**, not the numeric part of it. Carried from
+8. **A rule memorised without its scope fires in the wrong place.** NULLs are distinct
+   under `UNIQUE` and equal under `DISTINCT`; bounds are included by `BETWEEN` and
+   excluded by `NOT BETWEEN`.
+9. **Do not carry the previous answer over by analogy.** Expand the shorthand and walk
+   the rows; the two adjacent cases usually differ in where the NULL sits.
+10. **Verify the answer from the other side.** Complement, or total minus excluded.
+    Costs seconds and catches the arithmetic slips.
+11. **A prohibition follows from the evaluation order; a permission does not.**
+    `GROUP BY` and `ORDER BY` accept output labels because the documentation says so.
+12. **Options in `ORDER BY` attach to one expression**, never to the whole list.
+13. **Read back every identifier and every operator before running.** Six of this
+    topic's errors were typos, a swapped pairing, a dropped `NOT`, a wrong column.
+14. **Predict from the data, not from an impression of it.**
+15. **Finish everything that was asked**, not the numeric part of it. Carried from
     Topic 2 and Topic 1 unchanged.
 ---
  
@@ -358,35 +499,43 @@ predictions was answered correctly.
 | | Count |
 |---|---|
 | Clause evaluation order | 3 |
-| NULL semantics and three-valued logic | 5 |
+| NULL semantics and three-valued logic | 8 |
 | DISTINCT mechanics | 1 |
 | Answer completeness | 1 |
-| Execution slips | 4 |
+| Execution slips | 7 |
+| Sorting | 2 |
 | Process | 2 |
-| **Total so far** | **16** |
+| **Total so far** | **24** |
  
-Repeats carried over: C5 (Topic 2) as A2; A5 (Topic 2) as B1; recurring pattern 11
-(Topic 2) as A3 and E2; constraint-name typos (Topic 2) as E1; F1 (Topic 2, ×5) as F1.
+Repeats carried over: C5 (Topic 2) as A2; A5 (Topic 2) as B1 and B8; recurring
+pattern 11 (Topic 2) as A3 and E2; constraint-name typos (Topic 2) as E1 and E6;
+F1 (Topic 2, ×5) as F1.
  
 **Applied correctly without prompting.** Projection and row count; both halves of the
-column-label question, with the reasoning closer to the documentation than the
-explanation given in reply; `DISTINCT` with NULL on the second pass, including the
-collapse to one row that B1 got wrong; four practice queries with four correct
-row-count predictions, written before running; operator precedence answered for both
-readings of the same query — 4 with parentheses and 5 without; the group-by-group
-procedure filled in correctly across all seven groups; and nine of ten predictions on
-a set built from every trap missed earlier in the session.
+column-label question; `DISTINCT` with NULL on the second pass; four practice queries
+with four correct predictions; operator precedence answered for both readings of the
+same query — 4 with parentheses and 5 without; the group-by-group procedure filled in
+correctly across all seven groups; nine of ten predictions on a set built from every
+trap missed earlier.
  
-Also, outside the SQL: spotting that practice queries did not belong in a file, and
-that a `README` describing files that do not exist is the same class of drift as a
-`seed.sql` describing data that does not exist.
+Then, on the second day: all four `LIKE` questions correct including the `_` versus
+`%` distinction and the NULL case stated properly for the first time; the `IN` versus
+`NOT IN` asymmetry explained rather than memorised; three of three on the `ORDER BY`
+reinforcement block, including `ORDER BY is_active = false, name` — sorting by a
+computed expression to obtain a grouping the bare column does not give.
  
-**Shape of the topic so far.** It moved in two stages. The first half repeated the
-Topic 2 pattern one level earlier — the conclusion right, the mechanism behind it
-wrong (A1, A3, C1), and NULL handled by intuition rather than by rule (B1–B5). After
-the truth tables and the group-by-group procedure were written out, the second half
-went 9 of 10 on questions built from the same traps.
+Outside the SQL: spotting that practice queries did not belong in a file; that a
+`README` describing files that do not exist is the same drift as a `seed.sql`
+describing data that does not exist; and that a `DROP` before inserting into empty
+tables was unnecessary ceremony.
  
-What did not improve is block E. Four execution slips, all of one kind: the reasoning
-was sound and the text was not re-read. That is the part no amount of mechanism
-fixes — only the habit of reading back what was written before running it.
+**Shape of the topic.** Three stages so far. The first repeated the Topic 2 pattern
+one level earlier — conclusion right, mechanism wrong. The second, after the truth
+tables were written out, went 9 of 10 on the same traps. The third, on `IN` / `LIKE` /
+`ORDER BY`, showed the mechanisms holding: the misses are no longer about NULL being
+misunderstood but about carrying a previous answer over by analogy (B7), negating a
+range wrongly (B8), and attaching an option to the wrong expression (G1).
+ 
+Block E still does not improve: seven slips, all the same shape — sound reasoning, text
+not re-read. Two of them produced the right output from a wrong query, which is the
+variety that survives review.
