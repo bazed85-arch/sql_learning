@@ -419,6 +419,161 @@ SELECT code, actual_end_date FROM sites
 ORDER BY actual_end_date NULLS FIRST;
 ```
  
+## Experiment 8 — LIMIT, OFFSET and an unstable sort
+ 
+Two suppliers share 30-day terms. Paging with a sort that does not separate them:
+ 
+```sql
+-- page 1
+SELECT name, payment_terms_days FROM suppliers ORDER BY payment_terms_days LIMIT 3 OFFSET 0;
+-- Suministros (0) | Ferreteria (15) | Cementos (30)
+ 
+-- page 2
+SELECT name, payment_terms_days FROM suppliers ORDER BY payment_terms_days LIMIT 3 OFFSET 3;
+-- Cementos (30) | Pladur (45) | Hierros (60)
+```
+ 
+`Cementos` on both pages, `Pinturas` on neither. Eight suppliers, seven names shown,
+one of them twice.
+ 
+The full ordering, run separately, put `Pinturas` at position 3 and `Cementos` at 4 —
+the opposite of what page 1 had used. Same query, same data, two different orders for
+the two rows that tie. `ORDER BY` only guarantees order on the expressions it is given;
+`LIMIT`/`OFFSET` cut by position, so unfixed positions mean unfixed pages.
+ 
+Fixed by `ORDER BY payment_terms_days, id`.
+ 
+Also worth knowing: the Supabase SQL Editor has no result pagination. "Page 2" is a
+separate query with a different `OFFSET`, not a control in the interface.
+ 
+---
+ 
+## Practice — LIMIT and OFFSET
+ 
+```sql
+-- three shortest payment terms among active suppliers, agreed terms only
+SELECT name, payment_terms_days FROM suppliers
+WHERE payment_terms_days IS NOT NULL AND is_active = true
+ORDER BY payment_terms_days, id LIMIT 3;
+-- Suministros (0) | Ferreteria (15) | Cementos (30)
+ 
+-- places four to six by length of payment terms
+SELECT name, payment_terms_days FROM suppliers
+WHERE payment_terms_days IS NOT NULL
+ORDER BY payment_terms_days DESC, id LIMIT 3 OFFSET 3;
+-- Pinturas (30) | Ferreteria (15) | Suministros (0)
+ 
+-- two sites started earliest
+SELECT code, name, start_date FROM sites
+WHERE start_date IS NOT NULL
+ORDER BY start_date, id LIMIT 2;
+-- TF-006 (2024-02-19) | TF-002 (2024-09-02)
+ 
+-- five longest material names; three tie at 37 characters, so id breaks the tie
+SELECT name, length(name) AS name_length FROM materials
+ORDER BY length(name) DESC, id LIMIT 5;
+-- PHONIQUE [37] | Plasterboard standard [37] | Cement ... old packaging [37]
+-- | XPS [26] | Cement CEM II/B-L 42,5N [23]
+ 
+-- catalogue page 3, four per page
+SELECT name FROM materials ORDER BY name, id LIMIT 4 OFFSET 8;
+-- Rebar B500S 20 mm | Sand washed 0/4 | Silicone sealant clear | XPS insulation board
+ 
+-- unfinished sites by planned end date, nearest first
+-- "unfinished" is actual_end_date IS NULL, not a list of statuses: a new status
+-- value would silently break the IN version
+SELECT code, planned_end_date FROM sites
+WHERE planned_end_date IS NOT NULL AND actual_end_date IS NULL
+ORDER BY planned_end_date LIMIT 3;
+-- TF-001 (2026-06-30) | TF-003 (2026-12-20) | TF-005 (2027-03-01)
+```
+ 
+---
+ 
+## Experiment 9 — COALESCE, NULLIF, IS DISTINCT FROM
+ 
+```sql
+SELECT name, COALESCE(email, phone, 'нет контакта') AS contact FROM suppliers;
+-- id 2: phone   (email NULL)
+-- id 3: phone   (email NULL)
+-- id 7: email   (email present, taken immediately)
+```
+ 
+Argument order is a priority list of sources, not a ranking of importance: swapping
+`email` and `phone` changes the report on unchanged data.
+ 
+```sql
+COALESCE(''::text, 'без примечаний')                  -- []  the empty string
+COALESCE(NULLIF(''::text, ''), 'без примечаний')      -- [без примечаний]
+```
+ 
+`COALESCE` reacts to NULL only, and `''` is a value like any other. `NULLIF` turns it
+into a NULL first. Brackets added in the test so the empty string is visible.
+ 
+```sql
+SELECT count(*) FROM materials WHERE category <> 'cement';                 -- 7
+SELECT count(*) FROM materials WHERE category IS DISTINCT FROM 'cement';   -- 9
+SELECT count(*) FROM materials WHERE category IS NOT DISTINCT FROM NULL;   -- 2
+```
+ 
+The first two lines are the whole topic in one comparison. `<>` drops the rows with no
+category; `IS DISTINCT FROM` counts them as different and returns them. It is the long
+`col <> 'x' OR col IS NULL` in one operator — and the comparison `DISTINCT` and
+`GROUP BY` use internally, which closes the loop opened by Experiment 1.
+ 
+---
+ 
+## PGExercises — Basic section
+ 
+Separate database (`clubdata`), separate schema prefix `cd.`. Three tables:
+`cd.facilities`, `cd.members`, `cd.bookings`. Only one nullable column in the whole
+dataset — `members.recommendedby`, a self-referencing foreign key — which is where all
+the NULL exercises live. The guest is a placeholder row with `memid = 0`.
+ 
+Eight tasks, all passed. Corrections needed in three:
+ 
+```sql
+-- facilities charging members a fee
+SELECT * FROM cd.facilities WHERE membercost > 0;
+-- > 0 rather than <> 0: "charges a fee" excludes a negative price,
+-- and there is no CHECK forbidding one in their schema
+ 
+-- fee below 1/50 of monthly maintenance
+-- first attempt dropped the "charges a fee" condition and one output column
+SELECT facid, name, membercost, monthlymaintenance FROM cd.facilities
+WHERE membercost > 0 AND membercost < monthlymaintenance/50;
+-- monthlymaintenance is numeric, so the division is fractional.
+-- On an integer column it would truncate and drop rows silently.
+ 
+-- name contains Tennis
+-- first attempt used = with a % pattern, which compares literally: zero rows
+SELECT * FROM cd.facilities WHERE name LIKE '%Tennis%';
+ 
+SELECT * FROM cd.facilities WHERE facid IN (1,5);
+ 
+-- classification; first attempt wrote 'expansive'
+SELECT name, CASE WHEN monthlymaintenance > 100 THEN 'expensive' ELSE 'cheap' END AS cost
+FROM cd.facilities;
+ 
+-- members who joined after the start of September 2012
+SELECT memid, surname, firstname, joindate FROM cd.members
+WHERE joindate >= '2012-09-01';
+-- wrote > at first. Checked against clubdata.sql afterwards: both forms return
+-- the same 10 rows, because the earliest September member (Sarwin, memid 24)
+-- joined at 08:44:42, not at midnight. So > passes here by luck of the data.
+-- >= is still the correct reading of "after the start of", and date boundaries
+-- are a standing source of quiet reporting errors: >= start AND < next period.
+ 
+-- first ten distinct surnames
+SELECT DISTINCT surname FROM cd.members ORDER BY surname LIMIT 10;
+-- 31 members, 25 distinct surnames. GUEST lands inside the first ten either way,
+-- though its exact position depends on the collation: under C it sorts before
+-- lowercase letters, under en_US case is a weaker key and it falls after Genting.
+-- The task does not exclude the placeholder row; a real report would.
+```
+ 
+---
+ 
 ## Repository changes
  
 - `seed.sql` — `units` extended to eight rows, `materials` to twelve. Comments kept
@@ -460,6 +615,14 @@ ORDER BY actual_end_date NULLS FIRST;
  
 ## Side facts collected
  
+- PGExercises uses schema `cd.`; queries without the prefix fail. Verified against
+  their `clubdata.sql`: the schema has primary and foreign keys and no CHECK
+  constraints at all — which is why `> 0` versus `<> 0` matters there and matters
+  less in this project, where `CHECK` blocks the impossible values outright.
+- `members.recommendedby` is the only nullable column across all three of their
+  tables — also verified in the DDL, not assumed.
+- The Supabase SQL Editor has no pagination of results. A second page is a second
+  query with a different `OFFSET`.
 - `DELETE` does not reset an identity sequence. After deleting the three original
   units, the next insert would have received `id = 4`, not `1`.
   [5.3 Identity Columns](https://www.postgresql.org/docs/17/ddl-identity-columns.html)
