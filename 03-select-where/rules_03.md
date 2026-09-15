@@ -501,6 +501,117 @@ sorts before a letter — `Cement CEM I 52,5R` precedes `Cement CEM II/B-L 42,5N
  
 ---
  
+## 10. LIMIT and OFFSET
+ 
+[7.6 LIMIT and OFFSET](https://www.postgresql.org/docs/17/queries-limit.html) ·
+[LIMIT Clause](https://www.postgresql.org/docs/17/sql-select.html#SQL-LIMIT)
+ 
+**10.1 How they work.** The server builds the complete sorted result, discards the
+first `OFFSET` rows and returns the next `LIMIT` of them. Nothing is remembered between
+queries: every page is computed from scratch. Rows skipped by `OFFSET` are still
+produced, which is why a large offset is slower, not faster.
+ 
+**10.2 Page arithmetic:** `OFFSET = (page number − 1) × page size`.
+ 
+**10.3 Without `ORDER BY` the rows come back in an unpredictable order**, so "rows 4
+to 6" means nothing. Paging without a sort is not paging.
+ 
+**10.4 The sort must be total, not just present.** Rows equal on every `ORDER BY`
+expression have no fixed position, and `LIMIT`/`OFFSET` cut by position. The same row
+can then appear on two pages while another appears on none.
+ 
+Demonstrated on the seed data — two suppliers share 30-day terms, and
+`ORDER BY payment_terms_days LIMIT 3` run twice gave:
+ 
+```
+page 1 (OFFSET 0): Suministros (0) | Ferreteria (15) | Cementos (30)
+page 2 (OFFSET 3): Cementos (30)   | Pladur (45)     | Hierros (60)
+```
+ 
+`Cementos` twice, `Pinturas` nowhere. Fix: add a key that separates equal rows,
+preferably the primary key.
+ 
+```sql
+ORDER BY payment_terms_days, id
+```
+ 
+**10.5 Filtering is `WHERE`, not NULL placement.** "Exclude suppliers without agreed
+terms" is `WHERE payment_terms_days IS NOT NULL`. `NULLS LAST` only moves those rows
+down; with a different `LIMIT` or on different data they come back.
+ 
+**10.6 A short last page is not an error.** `LIMIT 3` returns fewer rows when fewer
+remain, and `OFFSET` past the end returns zero rows — no error either way.
+ 
+---
+ 
+## 11. Conditional expressions
+ 
+[9.18 Conditional Expressions](https://www.postgresql.org/docs/17/functions-conditional.html)
+ 
+**11.1 `COALESCE(a, b, c)` returns the first argument that is not NULL.** Arguments are
+checked left to right, so their order is a priority list of sources.
+ 
+```sql
+COALESCE(email, phone, 'нет контакта')
+```
+ 
+**If every argument is NULL the result is NULL** — not an empty string. `COALESCE` does
+not guarantee a value; it guarantees the first present one. For a real guarantee the
+last argument must be a literal.
+ 
+**11.2 `COALESCE` reacts to NULL only.** An empty string is a value, and a perfectly
+ordinary one, so `COALESCE('', 'default')` returns the empty string.
+ 
+**11.3 `NULLIF(a, b)` returns NULL when `a = b`, otherwise `a`.** It creates NULLs
+rather than removing them, which is what makes the pair useful together:
+ 
+```sql
+COALESCE(NULLIF(notes, ''), 'без примечаний')
+```
+ 
+Verified: `COALESCE(notes, ...)` on an empty string yields the empty string;
+with `NULLIF` inside it yields the default. The standard shape for data imported from
+CSV or web forms, where a blank field arrives as `''` and not as NULL.
+ 
+**11.4 `CASE` is an expression, not a statement.** It stands wherever a column would —
+select list, `WHERE`, `ORDER BY` — and produces one value per row.
+ 
+```sql
+CASE WHEN monthlymaintenance > 100 THEN 'expensive' ELSE 'cheap' END AS cost
+```
+ 
+Conditions are tested top to bottom and the first true one wins, so their order matters
+whenever they overlap. **Without `ELSE`, a row matching nothing yields NULL** — the same
+trap as 11.1.
+ 
+---
+ 
+## 12. IS DISTINCT FROM
+ 
+[9.2 Comparison Functions and Operators](https://www.postgresql.org/docs/17/functions-comparison.html)
+ 
+**12.1 It is `<>` that treats NULL as an ordinary value.** Two NULLs count as the same,
+NULL and a value count as different, and the result is always `true` or `false` —
+never NULL.
+ 
+```sql
+category <> 'cement'                -- 7 rows; the NULL-category rows yield NULL
+category IS DISTINCT FROM 'cement'  -- 9 rows; those rows count as "different"
+```
+ 
+It replaces the longer `col <> 'x' OR col IS NULL`.
+ 
+**12.2 `IS NOT DISTINCT FROM` is equality with the same treatment.**
+`col IS NOT DISTINCT FROM NULL` works but says `col IS NULL` the long way. Its real use
+is comparing two nullable columns where two NULLs should count as equal:
+`a IS NOT DISTINCT FROM b`.
+ 
+**12.3 This is the comparison `DISTINCT` and `GROUP BY` use internally** — which is why
+three NULLs collapse into one row there while `UNIQUE` accepts all three. `UNIQUE` uses
+`=`; they use "is not distinct from". Same data, two comparison rules (see 3.2).
+ 
+---
+ 
 ## Checklist before running a query
  
 - [ ] Every identifier read back character by character against the schema
