@@ -376,11 +376,32 @@ percent string and false without it.
  
 **Rule:** `rules.md` 7.5.
  
+### E8. Typo inside a string literal
+ 
+Writing the `CASE` classification on PGExercises: `THEN 'expansive'` instead of
+`'expensive'`.
+ 
+Worse than E1 and E6 because **the database cannot catch it**. A misspelled identifier
+raises 42703 or 42P01; a misspelled string literal is simply a different string, and
+the query runs and returns wrong labels. Only re-reading, or an automated check like
+the one on the exercise site, finds it.
+ 
+### E9. `=` used where the pattern operator was needed
+ 
+```sql
+WHERE name = '%Tennis%'   -- zero rows
+```
+ 
+`=` compares the whole string literally; `%` is just a character to it. The intended
+operator was `LIKE`, covered an hour earlier on this project's own data.
+ 
+**Rule:** `rules.md` 7.1.
+ 
 ---
  
 ## F. Process
  
-### F1. Part of what was asked answered, the rest skipped — six times
+### F1. Part of what was asked answered, the rest skipped — eight times
  
 | Question | Asked | Answered |
 |---|---|---|
@@ -461,6 +482,25 @@ default runs the other way would have produced a wrong order with no error.
  
 ---
  
+## H. Requirements dropped from the task
+ 
+### H1. One of two stated conditions implemented
+ 
+PGExercises: facilities that charge a member fee **and** whose fee is less than 1/50 of
+the monthly maintenance cost, returning four named columns.
+ 
+**Written:** the 1/50 comparison only, and three columns instead of four. A facility
+with `membercost = 0` satisfies `0 < maintenance/50` and would have been returned,
+which is what the first condition exists to prevent.
+ 
+Corrected on the second attempt without further prompting.
+ 
+**Class:** the same shape as F1 — part of what was asked is carried out — but here it
+lands in the query rather than in the reply, so the result is wrong rather than
+incomplete. **Repeat of F1, Topic 2**, where five of five cases were of this kind.
+ 
+---
+ 
 ## Recurring patterns to watch
  
 1. **`WHERE` keeps a row only when the condition is `true`.** `false` and NULL both
@@ -494,7 +534,7 @@ default runs the other way would have produced a wrong order with no error.
     Topic 2 and Topic 1 unchanged.
 ---
  
-## Scorecard — Topic 3 (in progress)
+## Scorecard — Topic 3
  
 | | Count |
 |---|---|
@@ -502,10 +542,11 @@ default runs the other way would have produced a wrong order with no error.
 | NULL semantics and three-valued logic | 8 |
 | DISTINCT mechanics | 1 |
 | Answer completeness | 1 |
-| Execution slips | 7 |
+| Execution slips | 9 |
 | Sorting | 2 |
+| Requirements dropped | 1 |
 | Process | 2 |
-| **Total so far** | **24** |
+| **Total** | **27** |
  
 Repeats carried over: C5 (Topic 2) as A2; A5 (Topic 2) as B1 and B8; recurring
 pattern 11 (Topic 2) as A3 and E2; constraint-name typos (Topic 2) as E1 and E6;
@@ -523,6 +564,16 @@ Then, on the second day: all four `LIKE` questions correct including the `_` ver
 `NOT IN` asymmetry explained rather than memorised; three of three on the `ORDER BY`
 reinforcement block, including `ORDER BY is_active = false, name` — sorting by a
 computed expression to obtain a grouping the bare column does not give.
+ 
+Then the closing stretch: five of five `LIMIT`/`OFFSET` tasks correct, including the
+one where "not finished" had to be read as `actual_end_date IS NULL` rather than as a
+list of statuses; `COALESCE` priority order and the `COALESCE(NULLIF(col, ''), ...)`
+pair both predicted correctly; and all three `IS DISTINCT FROM` counts right —
+including `category <> 'cement'` returning 7, the question that opened the topic with
+an answer of 9.
+ 
+On PGExercises, the Basic section finished: eight tasks, three corrections, the rest
+right first time.
  
 Outside the SQL: spotting that practice queries did not belong in a file; that a
 `README` describing files that do not exist is the same drift as a `seed.sql`
