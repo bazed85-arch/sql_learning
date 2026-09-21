@@ -68,3 +68,15 @@ INSERT INTO sites (code, name, address, status, start_date, planned_end_date, ac
   ('TF-004', 'Edificio Santa Cruz oficinas',  NULL,                                         'suspended', '2025-11-04', NULL,         NULL),
   ('TF-005', 'Ampliacion Puerto Los Cristianos', NULL,                                      'planned',   NULL,         '2027-03-01', NULL),
   ('TF-006', 'Viviendas La Orotava',          'Calle El Calvario 8, La Orotava',            'completed', '2024-02-19', '2025-01-31', '2025-01-20');
+
+-- unit_conversions ------------------------------------------------------------
+-- Material-independent factors only: 1 from_unit = factor to_unit.
+-- One direction per pair: kg -> t is derived as 1 / factor from the t -> kg row.
+-- Storing both would record one fact twice, and a CHECK sees a single row, so
+-- nothing could keep the two consistent.
+-- Pairs such as kg -> m3 are absent on purpose: mass converts to volume only
+-- through a material's density. Material-dependent factors (a bag of cement
+-- vs a bag of gravel) belong in material_unit_conversions.
+
+INSERT INTO unit_conversions (from_unit_id, to_unit_id, factor) VALUES (4, 3, 1000);  -- t  -> kg
+INSERT INTO unit_conversions (from_unit_id, to_unit_id, factor) VALUES (7, 8, 1000);  -- m3 -> l
