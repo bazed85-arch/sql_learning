@@ -131,3 +131,27 @@ INSERT INTO material_unit_conversions (material_id, from_unit_id, factor) VALUES
   (4, 6, 0.3333333333),   -- plasterboard, pcs: 1 m2 = 1/3 sheet
   (5, 5, 0.000888),       -- rebar 12 mm, t: 1 m = 0.000888 t
   (7, 7, 1.6);            -- sand, t: 1 m3 = 1.6 t
+
+-- supplier_materials ----------------------------------------------------------
+-- Thirteen price-list rows. Materials 9 (XPS insulation) and 12 (old cement
+-- packaging) have no supplier. Supplier 8 (Global Build Supplies) carries
+-- nothing.
+-- Materials 1, 4 and 5 are carried by two suppliers each, at different prices.
+-- supplier_article_no is NULL where the supplier quotes no code of its own.
+-- In two rows it equals our materials.article_no (CEM-II-425, PLB-STD-13).
+-- The last row is inactive: supplier 7 stopped carrying the paint.
+
+INSERT INTO supplier_materials (supplier_id, material_id, supplier_article_no, price, min_order_quantity, lead_time_days, is_active) VALUES
+  (1,  1, 'CEC-42-25',   6.80, 40,   2,    DEFAULT),
+  (1,  2, NULL,          8.90, 40,   3,    DEFAULT),
+  (6,  1, 'CEM-II-425',  7.40, NULL, 0,    DEFAULT),
+  (5,  5, 'B500S-12',  780.00, 1,    5,    DEFAULT),
+  (5,  6, NULL,        765.00, 1,    5,    DEFAULT),
+  (2,  5, NULL,        845.00, NULL, 1,    DEFAULT),
+  (3,  7, NULL,         32.00, 5,    1,    DEFAULT),
+  (3,  8, 'GRAVA-1220', 41.50, 5,    1,    DEFAULT),
+  (4,  3, NULL,         14.20, 10,   7,    DEFAULT),
+  (4,  4, 'PLB-STD-13',  8.60, 10,   3,    DEFAULT),
+  (2,  4, NULL,          9.40, NULL, 1,    DEFAULT),
+  (6, 11, NULL,          4.95, NULL, 0,    DEFAULT),
+  (7, 10, 'PA-BL-15',    4.10, NULL, NULL, false);
