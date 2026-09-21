@@ -97,3 +97,23 @@ INSERT INTO estimates (site_id, number, status, estimate_date, valid_until) VALU
   (4, 'EST-2025-019', 'rejected', '2025-10-15', NULL),           -- expected id 4
   (3, 'EST-2026-003', 'draft',    '2026-02-02', NULL),           -- expected id 5; no lines
   (2, 'EST-2024-007', 'approved', '2024-08-01', '2024-09-01');   -- expected id 6
+
+-- deliveries ------------------------------------------------------------------
+-- Nine delivery notes from seven suppliers. Supplier 8 (Global Build Supplies)
+-- has none.
+-- FIA-3320 is a draft with no lines in delivery_items.
+-- Supplier 3 issued note 0457 twice, in 2025 and in 2026: the numbering resets
+-- each year, and the pair is kept apart by year_no. year_no is a generated
+-- column and is not listed below.
+-- PAT-0098 comes from supplier 7, which is inactive, and has status rejected.
+
+INSERT INTO deliveries (supplier_id, delivery_note_number, delivery_date, status) VALUES
+  (1, 'ALB-25-0412', '2025-03-18', 'received'),               -- expected id 1
+  (5, 'HA-2025/118', '2025-04-02', 'received_with_issues'),   -- expected id 2
+  (3, '0457',        '2025-04-05', 'received'),               -- expected id 3
+  (4, 'PDC-9981',    '2025-05-12', 'received'),               -- expected id 4
+  (1, 'ALB-26-0031', '2026-01-20', 'received'),               -- expected id 5
+  (3, '0457',        '2026-02-11', 'received'),               -- expected id 6
+  (2, 'FIA-3320',    '2026-02-14', 'draft'),                  -- expected id 7; no lines
+  (7, 'PAT-0098',    '2024-10-03', 'rejected'),               -- expected id 8
+  (6, 'SLL-771',     '2024-09-20', 'received');               -- expected id 9
