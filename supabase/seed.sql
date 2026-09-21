@@ -176,3 +176,27 @@ INSERT INTO estimate_items (estimate_id, line_no, material_id, unit_id, quantity
   (4, 1,  2, 2,  150,   9.20),   -- expected id 10
   (6, 1,  6, 4,   12, 790.00),   -- expected id 11
   (6, 2, 11, 1,   50,   5.00);   -- expected id 12
+
+-- delivery_items --------------------------------------------------------------
+-- Eleven lines across eight delivery notes. FIA-3320 (delivery 7) has none.
+-- site_id is on the line, not on the note: delivery 4 (PDC-9981) carries goods
+-- for two sites, TF-001 and TF-003.
+-- Line 2 of delivery 4 goes to TF-003 on 2025-05-12, before that site's
+-- start_date of 2026-01-15. A CHECK cannot catch it: the two dates are in
+-- different tables.
+-- Some (site, material) pairs are delivered but not estimated, and some are
+-- estimated but not delivered.
+-- total is a generated column and is not listed below.
+
+INSERT INTO delivery_items (delivery_id, line_no, site_id, material_id, unit_id, quantity, unit_price) VALUES
+  (1, 1, 1,  1, 2, 380,    6.80),   -- expected id 1
+  (1, 2, 1,  2, 2,  20,    8.90),   -- expected id 2
+  (2, 1, 1,  5, 4,   8.2, 780.00),  -- expected id 3
+  (3, 1, 1,  8, 7,  55,   41.50),   -- expected id 4
+  (3, 2, 1,  7, 4,  12,   32.00),   -- expected id 5
+  (4, 1, 1,  4, 1, 300,    8.60),   -- expected id 6
+  (4, 2, 3,  3, 1, 200,   14.20),   -- expected id 7; TF-003 before its start_date
+  (5, 1, 3,  1, 2,  60,    6.80),   -- expected id 8
+  (6, 1, 3,  7, 4,   8,   32.00),   -- expected id 9
+  (8, 1, 2, 10, 8,  45,    4.10),   -- expected id 10
+  (9, 1, 2, 11, 1,  60,    4.95);   -- expected id 11
