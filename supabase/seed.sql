@@ -80,3 +80,17 @@ INSERT INTO sites (code, name, address, status, start_date, planned_end_date, ac
 
 INSERT INTO unit_conversions (from_unit_id, to_unit_id, factor) VALUES (4, 3, 1000);  -- t  -> kg
 INSERT INTO unit_conversions (from_unit_id, to_unit_id, factor) VALUES (7, 8, 1000);  -- m3 -> l
+
+-- estimates -------------------------------------------------------------------
+-- Six estimates across four sites. TF-005 and TF-006 have none.
+-- EST-2026-003 is a draft with no lines in estimate_items.
+-- valid_until is NULL where no validity date was set.
+-- Statuses cover all four values allowed by estimates_status_chk.
+
+INSERT INTO estimates (site_id, number, status, estimate_date, valid_until) VALUES
+  (1, 'EST-2025-001', 'approved', '2025-02-20', '2025-03-31'),   -- expected id 1
+  (1, 'EST-2025-014', 'sent',     '2025-09-10', '2025-10-10'),   -- expected id 2
+  (3, 'EST-2025-022', 'approved', '2025-12-01', NULL),           -- expected id 3
+  (4, 'EST-2025-019', 'rejected', '2025-10-15', NULL),           -- expected id 4
+  (3, 'EST-2026-003', 'draft',    '2026-02-02', NULL),           -- expected id 5; no lines
+  (2, 'EST-2024-007', 'approved', '2024-08-01', '2024-09-01');   -- expected id 6
