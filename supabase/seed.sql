@@ -84,6 +84,9 @@ INSERT INTO unit_conversions (from_unit_id, to_unit_id, factor) VALUES (7, 8, 10
 -- estimates -------------------------------------------------------------------
 -- Six estimates across four sites. TF-005 and TF-006 have none.
 -- EST-2026-003 is a draft with no lines in estimate_items.
+-- Rows without a match are there on purpose: if every site had an estimate
+-- and every estimate had lines, LEFT JOIN would return the same rows as
+-- INNER JOIN and the difference could not be seen.
 -- valid_until is NULL where no validity date was set.
 -- Statuses cover all four values allowed by estimates_status_chk.
 
