@@ -155,3 +155,24 @@ INSERT INTO supplier_materials (supplier_id, material_id, supplier_article_no, p
   (2,  4, NULL,          9.40, NULL, 1,    DEFAULT),
   (6, 11, NULL,          4.95, NULL, 0,    DEFAULT),
   (7, 10, 'PA-BL-15',    4.10, NULL, NULL, false);
+
+-- estimate_items --------------------------------------------------------------
+-- Twelve lines across five estimates. EST-2026-003 (estimate 5) has none.
+-- Line 2 of estimate 1 gives rebar 12 mm in kg while materials.unit_id is t:
+-- the unit on a line may differ from the catalogue unit.
+-- Material 9 (XPS insulation) is estimated but has no supplier.
+-- total is a generated column and is not listed below.
+
+INSERT INTO estimate_items (estimate_id, line_no, material_id, unit_id, quantity, unit_price) VALUES
+  (1, 1,  1, 2,  400,   6.90),   -- expected id 1
+  (1, 2,  5, 3, 8500,   0.80),   -- expected id 2; kg, catalogue unit is t
+  (1, 3,  8, 7,   60,  44.00),   -- expected id 3
+  (1, 4,  4, 1,  320,   9.00),   -- expected id 4
+  (2, 1,  4, 1,  120,   9.00),   -- expected id 5
+  (2, 2, 11, 1,   40,   5.20),   -- expected id 6
+  (3, 1,  3, 1,  450,  14.80),   -- expected id 7
+  (3, 2,  9, 6,  600,  11.50),   -- expected id 8; no supplier for this material
+  (3, 3, 10, 8,   90,   4.50),   -- expected id 9
+  (4, 1,  2, 2,  150,   9.20),   -- expected id 10
+  (6, 1,  6, 4,   12, 790.00),   -- expected id 11
+  (6, 2, 11, 1,   50,   5.00);   -- expected id 12
