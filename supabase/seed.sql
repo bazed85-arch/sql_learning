@@ -117,3 +117,17 @@ INSERT INTO deliveries (supplier_id, delivery_note_number, delivery_date, status
   (2, 'FIA-3320',    '2026-02-14', 'draft'),                  -- expected id 7; no lines
   (7, 'PAT-0098',    '2024-10-03', 'rejected'),               -- expected id 8
   (6, 'SLL-771',     '2024-09-20', 'received');               -- expected id 9
+
+-- material_unit_conversions ---------------------------------------------------
+-- Factors that depend on the material: 1 from_unit = factor base units, where
+-- the base unit is materials.unit_id. There is no to_unit_id column for that
+-- reason.
+-- Rebar 12 mm is catalogued in t but estimated in kg: kg -> t is not here,
+-- it comes from unit_conversions (t -> kg, taken as 1 / factor).
+-- 0.3333333333 has no exact value: a 2500x1200 sheet is 3 m2.
+
+INSERT INTO material_unit_conversions (material_id, from_unit_id, factor) VALUES
+  (1, 3, 0.04),           -- cement, bag: 1 kg = 0.04 bag (bag of 25 kg)
+  (4, 6, 0.3333333333),   -- plasterboard, pcs: 1 m2 = 1/3 sheet
+  (5, 5, 0.000888),       -- rebar 12 mm, t: 1 m = 0.000888 t
+  (7, 7, 1.6);            -- sand, t: 1 m3 = 1.6 t
