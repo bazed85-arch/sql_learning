@@ -72,58 +72,22 @@ INSERT INTO sites (code, name, address, status, start_date, planned_end_date, ac
 -- unit_conversions ------------------------------------------------------------
 -- Material-independent factors only: 1 from_unit = factor to_unit.
 -- One direction per pair: kg -> t is derived as 1 / factor from the t -> kg row.
--- Storing both would record one fact twice, and a CHECK sees a single row, so
--- nothing could keep the two consistent.
+-- Storing both directions would record one fact twice, and a CHECK sees a single
+-- row, so nothing could keep the two consistent.
 -- Pairs such as kg -> m3 are absent on purpose: mass converts to volume only
--- through a material's density. Material-dependent factors (a bag of cement
--- vs a bag of gravel) belong in material_unit_conversions.
+-- through a material's density. Material-dependent factors (a bag of cement vs a
+-- bag of gravel) belong in material_unit_conversions.
 
-INSERT INTO unit_conversions (from_unit_id, to_unit_id, factor) VALUES (4, 3, 1000);  -- t  -> kg
-INSERT INTO unit_conversions (from_unit_id, to_unit_id, factor) VALUES (7, 8, 1000);  -- m3 -> l
-
--- estimates -------------------------------------------------------------------
--- Six estimates across four sites. TF-005 and TF-006 have none.
--- EST-2026-003 is a draft with no lines in estimate_items.
--- Rows without a match are there on purpose: if every site had an estimate
--- and every estimate had lines, LEFT JOIN would return the same rows as
--- INNER JOIN and the difference could not be seen.
--- valid_until is NULL where no validity date was set.
--- Statuses cover all four values allowed by estimates_status_chk.
-
-INSERT INTO estimates (site_id, number, status, estimate_date, valid_until) VALUES
-  (1, 'EST-2025-001', 'approved', '2025-02-20', '2025-03-31'),   -- expected id 1
-  (1, 'EST-2025-014', 'sent',     '2025-09-10', '2025-10-10'),   -- expected id 2
-  (3, 'EST-2025-022', 'approved', '2025-12-01', NULL),           -- expected id 3
-  (4, 'EST-2025-019', 'rejected', '2025-10-15', NULL),           -- expected id 4
-  (3, 'EST-2026-003', 'draft',    '2026-02-02', NULL),           -- expected id 5; no lines
-  (2, 'EST-2024-007', 'approved', '2024-08-01', '2024-09-01');   -- expected id 6
-
--- deliveries ------------------------------------------------------------------
--- Nine delivery notes from seven suppliers. Supplier 8 (Global Build Supplies)
--- has none.
--- FIA-3320 is a draft with no lines in delivery_items.
--- Supplier 3 issued note 0457 twice, in 2025 and in 2026: the numbering resets
--- each year, and the pair is kept apart by year_no. year_no is a generated
--- column and is not listed below.
--- PAT-0098 comes from supplier 7, which is inactive, and has status rejected.
-
-INSERT INTO deliveries (supplier_id, delivery_note_number, delivery_date, status) VALUES
-  (1, 'ALB-25-0412', '2025-03-18', 'received'),               -- expected id 1
-  (5, 'HA-2025/118', '2025-04-02', 'received_with_issues'),   -- expected id 2
-  (3, '0457',        '2025-04-05', 'received'),               -- expected id 3
-  (4, 'PDC-9981',    '2025-05-12', 'received'),               -- expected id 4
-  (1, 'ALB-26-0031', '2026-01-20', 'received'),               -- expected id 5
-  (3, '0457',        '2026-02-11', 'received'),               -- expected id 6
-  (2, 'FIA-3320',    '2026-02-14', 'draft'),                  -- expected id 7; no lines
-  (7, 'PAT-0098',    '2024-10-03', 'rejected'),               -- expected id 8
-  (6, 'SLL-771',     '2024-09-20', 'received');               -- expected id 9
+INSERT INTO unit_conversions (from_unit_id, to_unit_id, factor) VALUES
+  (4, 3, 1000),   -- t  -> kg
+  (7, 8, 1000);   -- m3 -> l
 
 -- material_unit_conversions ---------------------------------------------------
--- Factors that depend on the material: 1 from_unit = factor base units, where
--- the base unit is materials.unit_id. There is no to_unit_id column for that
--- reason.
--- Rebar 12 mm is catalogued in t but estimated in kg: kg -> t is not here,
--- it comes from unit_conversions (t -> kg, taken as 1 / factor).
+-- Factors that depend on the material: 1 from_unit = factor base units, where the
+-- base unit is materials.unit_id. That is why there is no to_unit_id column.
+-- Rebar 12 mm is catalogued in t but estimated in kg: kg -> t is not here, it is
+-- derived from unit_conversions (t -> kg, taken as 1 / factor). Resolving that
+-- line therefore needs both tables.
 -- 0.3333333333 has no exact value: a 2500x1200 sheet is 3 m2.
 
 INSERT INTO material_unit_conversions (material_id, from_unit_id, factor) VALUES
@@ -133,13 +97,17 @@ INSERT INTO material_unit_conversions (material_id, from_unit_id, factor) VALUES
   (7, 7, 1.6);            -- sand, t: 1 m3 = 1.6 t
 
 -- supplier_materials ----------------------------------------------------------
--- Thirteen price-list rows. Materials 9 (XPS insulation) and 12 (old cement
--- packaging) have no supplier. Supplier 8 (Global Build Supplies) carries
--- nothing.
--- Materials 1, 4 and 5 are carried by two suppliers each, at different prices.
--- supplier_article_no is NULL where the supplier quotes no code of its own.
--- In two rows it equals our materials.article_no (CEM-II-425, PLB-STD-13).
--- The last row is inactive: supplier 7 stopped carrying the paint.
+-- Thirteen rows. Materials 9 (XPS insulation) and 12 (old cement packaging) have
+-- no supplier at all; supplier 8 (Global Build Supplies) carries nothing. Those
+-- gaps are what LEFT JOIN + IS NULL finds.
+-- Materials 1, 4 and 5 are carried by two suppliers each, at different prices:
+-- joining them to estimate_items multiplies the estimate lines.
+-- supplier_article_no is NULL where the supplier quotes no code of its own. In two
+-- rows it equals our materials.article_no (CEM-II-425, PLB-STD-13), so joining the
+-- two catalogues on that column is possible — and drops every row where either
+-- side is NULL.
+-- The last row is inactive: supplier 7 stopped carrying the paint. It is the only
+-- is_active = false row, and it is what makes ON vs WHERE visible.
 
 INSERT INTO supplier_materials (supplier_id, material_id, supplier_article_no, price, min_order_quantity, lead_time_days, is_active) VALUES
   (1,  1, 'CEC-42-25',   6.80, 40,   2,    DEFAULT),
@@ -156,11 +124,31 @@ INSERT INTO supplier_materials (supplier_id, material_id, supplier_article_no, p
   (6, 11, NULL,          4.95, NULL, 0,    DEFAULT),
   (7, 10, 'PA-BL-15',    4.10, NULL, NULL, false);
 
+-- estimates -------------------------------------------------------------------
+-- Six estimates across four sites. TF-005 and TF-006 have none, EST-2026-003 has
+-- no lines in estimate_items. Rows without a match are there on purpose: if every
+-- site had an estimate and every estimate had lines, LEFT JOIN would return the
+-- same rows as INNER JOIN and the difference could not be seen.
+-- TF-004 has one estimate and it is rejected: the site drops out of a list of
+-- approved estimates unless the status test sits in ON.
+-- valid_until is NULL where no validity date was agreed.
+-- All four values allowed by estimates_status_chk occur.
+
+INSERT INTO estimates (site_id, number, status, estimate_date, valid_until) VALUES
+  (1, 'EST-2025-001', 'approved', '2025-02-20', '2025-03-31'),   -- expected id 1
+  (1, 'EST-2025-014', 'sent',     '2025-09-10', '2025-10-10'),   -- expected id 2
+  (3, 'EST-2025-022', 'approved', '2025-12-01', NULL),           -- expected id 3
+  (4, 'EST-2025-019', 'rejected', '2025-10-15', NULL),           -- expected id 4
+  (3, 'EST-2026-003', 'draft',    '2026-02-02', NULL),           -- expected id 5; no lines
+  (2, 'EST-2024-007', 'approved', '2024-08-01', '2024-09-01');   -- expected id 6
+
 -- estimate_items --------------------------------------------------------------
 -- Twelve lines across five estimates. EST-2026-003 (estimate 5) has none.
--- Line 2 of estimate 1 gives rebar 12 mm in kg while materials.unit_id is t:
--- the unit on a line may differ from the catalogue unit.
--- Material 9 (XPS insulation) is estimated but has no supplier.
+-- Line 2 of estimate 1 gives rebar 12 mm in kg while materials.unit_id is t: the
+-- unit on a line may differ from the catalogue unit, and converting it needs
+-- unit_conversions read backwards.
+-- Material 9 (XPS insulation) is estimated but has no supplier and was never
+-- delivered.
 -- total is a generated column and is not listed below.
 
 INSERT INTO estimate_items (estimate_id, line_no, material_id, unit_id, quantity, unit_price) VALUES
@@ -177,15 +165,35 @@ INSERT INTO estimate_items (estimate_id, line_no, material_id, unit_id, quantity
   (6, 1,  6, 4,   12, 790.00),   -- expected id 11
   (6, 2, 11, 1,   50,   5.00);   -- expected id 12
 
+-- deliveries ------------------------------------------------------------------
+-- Nine delivery notes from seven suppliers. Supplier 8 (Global Build Supplies)
+-- has none; FIA-3320 is a draft with no lines in delivery_items.
+-- Supplier 3 issued note 0457 twice, in 2025 and in 2026: numbering restarts each
+-- year and the pair is kept apart by year_no. Two rows therefore share a
+-- delivery_note_number, which makes ORDER BY on that column alone interleave the
+-- lines of two different notes. year_no is a generated column and is not listed.
+-- PAT-0098 comes from supplier 7, which is inactive, and has status rejected.
+
+INSERT INTO deliveries (supplier_id, delivery_note_number, delivery_date, status) VALUES
+  (1, 'ALB-25-0412', '2025-03-18', 'received'),               -- expected id 1
+  (5, 'HA-2025/118', '2025-04-02', 'received_with_issues'),   -- expected id 2
+  (3, '0457',        '2025-04-05', 'received'),               -- expected id 3
+  (4, 'PDC-9981',    '2025-05-12', 'received'),               -- expected id 4
+  (1, 'ALB-26-0031', '2026-01-20', 'received'),               -- expected id 5
+  (3, '0457',        '2026-02-11', 'received'),               -- expected id 6
+  (2, 'FIA-3320',    '2026-02-14', 'draft'),                  -- expected id 7; no lines
+  (7, 'PAT-0098',    '2024-10-03', 'rejected'),               -- expected id 8
+  (6, 'SLL-771',     '2024-09-20', 'received');               -- expected id 9
+
 -- delivery_items --------------------------------------------------------------
 -- Eleven lines across eight delivery notes. FIA-3320 (delivery 7) has none.
--- site_id is on the line, not on the note: delivery 4 (PDC-9981) carries goods
+-- site_id sits on the line, not on the note: delivery 4 (PDC-9981) carries goods
 -- for two sites, TF-001 and TF-003.
--- Line 2 of delivery 4 goes to TF-003 on 2025-05-12, before that site's
--- start_date of 2026-01-15. A CHECK cannot catch it: the two dates are in
--- different tables.
+-- Line 2 of delivery 4 goes to TF-003 on 2025-05-12, before that site's start_date
+-- of 2026-01-15. A CHECK cannot catch it: the two dates are in different tables.
 -- Some (site, material) pairs are delivered but not estimated, and some are
--- estimated but not delivered.
+-- estimated but not delivered, so a FULL OUTER JOIN of the two has rows on both
+-- sides without a match.
 -- total is a generated column and is not listed below.
 
 INSERT INTO delivery_items (delivery_id, line_no, site_id, material_id, unit_id, quantity, unit_price) VALUES
@@ -195,7 +203,7 @@ INSERT INTO delivery_items (delivery_id, line_no, site_id, material_id, unit_id,
   (3, 1, 1,  8, 7,  55,   41.50),   -- expected id 4
   (3, 2, 1,  7, 4,  12,   32.00),   -- expected id 5
   (4, 1, 1,  4, 1, 300,    8.60),   -- expected id 6
-  (4, 2, 3,  3, 1, 200,   14.20),   -- expected id 7; TF-003 before its start_date
+  (4, 2, 3,  3, 1, 200,   14.20),   -- expected id 7; TF-003, before its start_date
   (5, 1, 3,  1, 2,  60,    6.80),   -- expected id 8
   (6, 1, 3,  7, 4,   8,   32.00),   -- expected id 9
   (8, 1, 2, 10, 8,  45,    4.10),   -- expected id 10
