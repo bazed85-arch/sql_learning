@@ -192,15 +192,85 @@ selects group rows after
   `WHERE` turns the `LEFT OUTER JOIN` into an inner join — rules_04, 7.3.
 ---
  
-## 4. Practice
+## 4. Step 3: columns outside GROUP BY, DISTINCT, avg / min / max
  
-- Six tasks so far. Two queries written by the student, tasks 4 and 5, both correct
-  on the first send.
-- Predictions checked from the other side: tasks 2, 3, 4, 5, 6.
+**4.1 A column that is not in `GROUP BY` and not inside an aggregate.**
+ 
+```sql
+SELECT ei.estimate_id, ei.material_id, count(*) AS item_rows
+FROM estimate_items AS ei
+GROUP BY ei.estimate_id
+ORDER BY ei.estimate_id;
+```
+ 
+Not run; the student predicted the error and named the cause. Rule
+([7.2.3](https://www.postgresql.org/docs/17/queries-table-expressions.html#QUERIES-GROUP)):
+once a table is grouped, columns not listed in `GROUP BY` can be referenced only
+inside aggregate expressions.
+ 
+- Group `estimate_id` = 1 has four rows with `ei.material_id` 1, 5, 8, 4. The group
+  row has room for one value; none of the four is preferred. The value 4, first
+  named by the student, followed from neither the data nor the rule.
+- Group `estimate_id` = 4 has one row, `ei.material_id` = 2. The query would still
+  fail: the check runs on the text of the query, not on how many rows the groups
+  happen to hold.
+Term: "group row" is the whole result row built for a group — grouping value,
+aggregate results, everything. `count(*)` is one value inside it, not the row.
+ 
+**4.2 `count(DISTINCT …)`.**
+ 
+```sql
+SELECT count(ei.material_id) AS item_rows,
+       count(DISTINCT ei.material_id) AS distinct_materials
+FROM estimate_items AS ei;
+```
+ 
+One row: 12 and 10
+([4.2.7](https://www.postgresql.org/docs/17/sql-expressions.html#SYNTAX-AGGREGATES)).
+ 
+- Repeated values: `ei.material_id` 4 in `estimate_items.id` 4 and 5; 11 in
+  `estimate_items.id` 6 and 12.
+- Distinct values: 1, 2, 3, 4, 5, 6, 8, 9, 10, 11 — ten. 12 rows − 2 repeats = 10.
+- `item_rows` is 12 because `count(expression)` counts rows where the expression is
+  not NULL, and `NOT NULL` on `estimate_items.material_id` leaves no NULL to skip.
+  Same rule as task 1, where all twelve `description` values were NULL and the count
+  was 0.
+**4.3 `avg`, `min`, `max` and NULL.**
+ 
+```sql
+SELECT count(*) AS all_rows,
+       count(sm.lead_time_days) AS with_lead_time,
+       avg(sm.lead_time_days) AS avg_days,
+       min(sm.lead_time_days) AS min_days,
+       max(sm.lead_time_days) AS max_days
+FROM supplier_materials AS sm;
+```
+ 
+([9.21](https://www.postgresql.org/docs/17/functions-aggregate.html).) One row:
+ 
+| all_rows | with_lead_time | avg_days | min_days | max_days |
+|---|---|---|---|---|
+| 13 | 12 | 2.42 | 0 | 7 |
+ 
+- One NULL: `supplier_materials` supplier 7, material 10 (inactive row).
+- `avg_days` = 29 / 12 = 2.4166…, rounded 2.42. The sum of the twelve non-NULL
+  values is 29; the divisor is `with_lead_time`, not `all_rows`.
+- With divisor 13 the result would be 2.23. They differ, so NULL enters neither the
+  sum nor the divisor.
+- `avg` of an `integer` column is `numeric`, hence 2.4166…, not 2.
+- `min_days` = 0 from supplier 6, materials 1 and 11. `max_days` = 7 from supplier 4,
+  material 3. The NULL row does not take part in either.
+---
+ 
+## 5. Practice
+ 
+- Nine tasks so far. Two queries written by the student, tasks 4 and 5, both
+  correct on the first send.
+- Predictions checked from the other side: tasks 2, 3, 4, 5, 6, 8, 9.
 - Not done: PGExercises, sections Joins and Aggregates.
 ---
  
-## 5. Open questions
+## 6. Open questions
  
 1. **Five migrations with transposed dates** (1.2). End of this topic.
 2. **`schema-design.md`, four drifts** (1.4). End of this topic.
@@ -213,7 +283,7 @@ selects group rows after
    `material_unit_conversions`.
 ---
  
-## 6. How the tutoring should run (for the next chat)
+## 7. How the tutoring should run (for the next chat)
  
 Carried from topic 4:
  
