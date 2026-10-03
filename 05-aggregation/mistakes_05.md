@@ -8,11 +8,11 @@ Kept in two parts, because the two move independently:
 A third part, **T**, records the tutor's own errors.
  
 Records were kept during the session and written at the end of each major step.
-This file covers steps 1 and 2, the first six tasks.
+This file covers steps 1 to 3, the first nine tasks.
  
 ---
  
-## E — execution (8)
+## E — execution (10)
  
 | # | What happened | Note |
 |---|---|---|
@@ -24,8 +24,10 @@ This file covers steps 1 and 2, the first six tasks.
 | E6 | Task 4, item 5 — "совпадают" without either number | Sent after return: 41443 and 41443 |
 | E7 | Task 6, item 5 — "совпасть не должны", while own numbers were 40580 and 40580 | Closed with one question |
 | E8 | Task 5, item 4 — "не входит в группу" for a group that exists and is excluded from the result | Wording |
+| E9 | Task 7, item 4 — number of rows in group `estimate_id` = 4 asked for, not given | Sent after return: 1 |
+| E10 | Task 9, item 2 — `avg_days` written as "2", while item 3 gave 2,42 | Closed with one question; the student named the cause himself: `avg` of `integer` is `numeric` |
  
-**Pattern.** E1, E2, E3 and E6 are the same failure as topics 3 and 4: the part
+**Pattern.** E1, E2, E3, E6 and E9 are the same failure as topics 3 and 4: the part
 of the task that is prose rather than a number or code gets dropped. Fifth topic
 running. E5 and E7 are a different one: the question asked for one quantity and the
 answer gave another — a count of rows instead of a sum of values, a comparison with
@@ -33,15 +35,17 @@ the wrong total. In both cases the student's own numbers were right.
  
 ---
  
-## U — understanding (1)
+## U — understanding (3)
  
 | # | What was wrong | How it was closed |
 |---|---|---|
 | U1 | Task 4, estimate 5: `sum` gives NULL "если строки нет" — while task 3 had just shown the group has one row; then `ei.total` in that row given as 0 | "If `ei.total` were 0, what would `sum` give?" → 0. "The result is NULL, so what is the value?" → NULL. Chain assembled: `LEFT OUTER JOIN` adds a NULL row → `sum` skips NULL → no inputs → NULL |
+| U2 | Task 7, group `estimate_id` = 1: the value of `ei.material_id` in the group row given as 4, with no reason | Narrowing question on the four values 1, 5, 8, 4; the term "group row" had to be defined (T7). After the student said "any", the tutor stated the documentation's reason: more than one possible value |
+| U3 | Task 8, item 5: `count(expression)` said to count "all rows" when asked why it gives 12 on a `NOT NULL` column | Compared with task 1, same twelve rows, `count(description)` = 0. The student then gave the rule: rows where the expression is not NULL |
  
 ---
  
-## T — tutor (6)
+## T — tutor (7)
  
 | # | What was wrong |
 |---|---|
@@ -51,23 +55,26 @@ the wrong total. In both cases the student's own numbers were right.
 | T4 | Tasks 1 and 3 given with `count(*)` and `count(...)` unlabelled: both output columns named `count`, one lost in the SQL Editor. Topic 4 experiment 3.2 was already in the notes |
 | T5 | Task 3, item 5: the origin of sums 13 and 12 pushed over three rounds, down to naming a table. One question would have done |
 | T6 | The first message opened with repository issues and question 1 together, instead of asking which to handle first. Question 1 was then repeated in full four times |
+| T7 | Task 7: "групповая строка" used with no definition. The student read it as `count(*)`, the same kind of failure as T3 after the rule against it had been agreed |
  
 **Pattern.** T2 and T4 are "not checked against a source already at hand" — the
-section 6 comment, and experiment 3.2 of topic 4. T3 and T5 cost the most turns.
+section 6 comment, and experiment 3.2 of topic 4. T3 and T7 are the same failure:
+a notation or a term that can be read two ways. T3 and T5 cost the most turns.
  
 ---
  
 ## Metric
  
-| Metric | Topic 2 | Topic 3 | Topic 4 | Topic 5, steps 1–2 |
+| Metric | Topic 2 | Topic 3 | Topic 4 | Topic 5, steps 1–3 |
 |---|---|---|---|---|
 | Execution discipline | 4/10 | 3/10 | 4/10 | scored at the end |
 | Complete answers | — | weak | weak, no change | weak, no change |
 | Understanding | — | — | 7/10 | scored at the end |
  
-Execution: 8 entries over six tasks. SQL itself had no errors — both written
-queries, tasks 4 and 5, were accepted on the first send. As in topic 4, the failures are in
-the prose part of the answers.
+Execution: 10 entries over nine tasks. SQL itself had no errors — both written
+queries, tasks 4 and 5, were accepted on the first send. As in topic 4, the
+failures are in the prose part of the answers.
  
-Understanding: one entry, closed within two follow-up questions, without the answer
-being given.
+Understanding: three entries, all closed within one to three follow-up
+questions. U2 needed the tutor to define a term and state the reason from the
+documentation; U1 and U3 closed without the answer being given.
