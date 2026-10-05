@@ -262,15 +262,105 @@ FROM supplier_materials AS sm;
   material 3. The NULL row does not take part in either.
 ---
  
-## 5. Practice
+## 5. Step 4: GROUP BY on two columns, row multiplication, min / max over a join
  
-- Nine tasks so far. Two queries written by the student, tasks 4 and 5, both
+**5.1 `GROUP BY` on two columns.**
+ 
+```sql
+SELECT d.status, d.year_no, count(*) AS delivery_rows
+FROM deliveries AS d
+GROUP BY d.status, d.year_no
+ORDER BY d.year_no, d.status;
+```
+ 
+A group is formed only from rows that have the same values in all listed columns
+([7.2.3](https://www.postgresql.org/docs/17/queries-table-expressions.html#QUERIES-GROUP)).
+`deliveries.year_no` is the generated column from `20261109111200`. 6 groups:
+ 
+| status | year_no | delivery_rows |
+|---|---|---|
+| received | 2024 | 1 |
+| rejected | 2024 | 1 |
+| received | 2025 | 3 |
+| received_with_issues | 2025 | 1 |
+| draft | 2026 | 1 |
+| received | 2026 | 2 |
+ 
+- `received` in 2025 and `received` in 2026 are two groups: one column matches, the
+  other does not.
+- `GROUP BY d.status` alone gives 4 groups: received 6, received_with_issues 1,
+  rejected 1, draft 1.
+- Check: sum of `delivery_rows` = 9 = rows of `deliveries`.
+**5.2 `sum` after a join that multiplies rows.**
+ 
+```sql
+SELECT sum(ei.total) AS joined_total,
+       count(*) AS joined_rows,
+       count(DISTINCT ei.id) AS item_rows
+FROM estimate_items AS ei
+INNER JOIN supplier_materials AS sm ON ei.material_id = sm.material_id
+WHERE ei.estimate_id = 1;
+```
+ 
+For each row R1 of T1, the joined table has a row for each row of T2 that satisfies
+the join condition with R1
+([7.2.1.1](https://www.postgresql.org/docs/17/queries-table-expressions.html#QUERIES-JOIN)).
+ 
+| estimate_items.id | estimate_items.total | matching `supplier_materials` rows |
+|---|---|---|
+| 1 | 2760.00 | 2 |
+| 2 | 6800.00 | 2 |
+| 3 | 2640.00 | 1 |
+| 4 | 2880.00 | 2 |
+ 
+- `joined_rows` = 2 + 2 + 1 + 2 = 7; `item_rows` = 4.
+- `joined_total` = 2760.00 × 2 + 6800.00 × 2 + 2640.00 × 1 + 2880.00 × 2
+  = 27520.00. The sum of the four rows without the join is 15080.00.
+- The query runs without error and returns a plausible number. The sign that rows
+  were multiplied is `count(*)` ≠ `count(DISTINCT ei.id)`: 7 against 4.
+- Same numbers as topic 4, experiment 3.4.
+- The join in this task is deliberately wrong for a total. It is right for looking
+  at the supplier rows one by one (5.3). The price of a material at a given supplier
+  is `supplier_materials.price`, one row per supplier-material pair.
+**5.3 `min` and `max` over a grouped join.**
+ 
+```sql
+SELECT ei.id AS id,
+       ei.material_id AS material_id,
+       count(*) AS supplier_rows,
+       min(sm.price) AS min_price,
+       max(sm.price) AS max_price
+FROM estimate_items AS ei
+INNER JOIN supplier_materials AS sm ON ei.material_id = sm.material_id
+WHERE ei.estimate_id = 1
+GROUP BY ei.id, ei.material_id
+ORDER BY ei.id;
+```
+ 
+4 rows:
+ 
+| id | material_id | supplier_rows | min_price | max_price |
+|---|---|---|---|---|
+| 1 | 1 | 2 | 6.80 | 7.40 |
+| 2 | 5 | 2 | 780.00 | 845.00 |
+| 3 | 8 | 1 | 41.50 | 41.50 |
+| 4 | 4 | 2 | 8.60 | 9.40 |
+ 
+- Check: sum of `supplier_rows` = 7 = `joined_rows` of 5.2. Same join condition,
+  same `WHERE`.
+- `min_price` = `max_price` in row 3: material 8 has one supplier row (supplier 3),
+  so the group holds one value.
+---
+ 
+## 6. Practice
+ 
+- Twelve tasks so far. Two queries written by the student, tasks 4 and 5, both
   correct on the first send.
-- Predictions checked from the other side: tasks 2, 3, 4, 5, 6, 8, 9.
+- Predictions checked from the other side: tasks 2, 3, 4, 5, 6, 8, 9, 10, 11, 12.
 - Not done: PGExercises, sections Joins and Aggregates.
 ---
  
-## 6. Open questions
+## 7. Open questions
  
 1. **Five migrations with transposed dates** (1.2). End of this topic.
 2. **`schema-design.md`, four drifts** (1.4). End of this topic.
@@ -281,9 +371,16 @@ FROM supplier_materials AS sm;
    `CHECK` on date consistency in `sites`; delivery line 7 dated before its site's
    `start_date`; no constraint for `from_unit_id <> materials.unit_id` in
    `material_unit_conversions`.
+6. **Functional dependence in `GROUP BY`.** Section 7.2.3 allows an ungrouped
+   column in the select list when it is functionally dependent on the grouped
+   ones, for example when grouping by a primary key. Not tested: tasks 7 and 12
+   group by explicit columns.
+7. **Plan against catalogue price.** Comparing `estimate_items.unit_price` with
+   `supplier_materials.price` needs the unit conversion tables: topic 4 planted a
+   line estimated in kg and catalogued in t. Task for a later step.
 ---
  
-## 7. How the tutoring should run (for the next chat)
+## 8. How the tutoring should run (for the next chat)
  
 Carried from topic 4:
  
