@@ -5,14 +5,15 @@ Kept in two parts, because the two move independently:
 - **E — execution.** The mechanism was known; something else reached the answer.
   Includes incomplete answers: a question with several parts answered in part.
 - **U — understanding.** The mechanism itself was wrong.
+ 
 A third part, **T**, records the tutor's own errors.
  
 Records were kept during the session and written at the end of each major step.
-This file covers steps 1 to 3, the first nine tasks.
+This file covers steps 1 to 4, the first twelve tasks.
  
 ---
  
-## E — execution (10)
+## E — execution (12)
  
 | # | What happened | Note |
 |---|---|---|
@@ -26,26 +27,30 @@ This file covers steps 1 to 3, the first nine tasks.
 | E8 | Task 5, item 4 — "не входит в группу" for a group that exists and is excluded from the result | Wording |
 | E9 | Task 7, item 4 — number of rows in group `estimate_id` = 4 asked for, not given | Sent after return: 1 |
 | E10 | Task 9, item 2 — `avg_days` written as "2", while item 3 gave 2,42 | Closed with one question; the student named the cause himself: `avg` of `integer` is `numeric` |
+| E11 | Task 11, item 1 — number of `supplier_materials` rows per `estimate_items.id` asked for, the `supplier_id` values listed instead | Closed with one repeat of the question: 2, 2, 1, 2 |
+| E12 | Task 11, item 5 — second half, the comparison of two values from the result that shows the rows were multiplied, not sent | Sent after return: `count(*)` ≠ `count(DISTINCT ei.id)` (T9) |
  
-**Pattern.** E1, E2, E3, E6 and E9 are the same failure as topics 3 and 4: the part
-of the task that is prose rather than a number or code gets dropped. Fifth topic
-running. E5 and E7 are a different one: the question asked for one quantity and the
-answer gave another — a count of rows instead of a sum of values, a comparison with
-the wrong total. In both cases the student's own numbers were right.
+**Pattern.** E1, E2, E3, E6, E9 and E12 are the same failure as topics 3 and 4:
+the part of the task that is prose rather than a number or code gets dropped.
+Fifth topic running. E5, E7 and E11 are a different one: the question asked for
+one quantity and the answer gave another — a count of rows instead of a sum of
+values, ids instead of a count, a comparison with the wrong total. In every case
+the student's own numbers were right.
  
 ---
  
-## U — understanding (3)
+## U — understanding (4)
  
 | # | What was wrong | How it was closed |
 |---|---|---|
 | U1 | Task 4, estimate 5: `sum` gives NULL "если строки нет" — while task 3 had just shown the group has one row; then `ei.total` in that row given as 0 | "If `ei.total` were 0, what would `sum` give?" → 0. "The result is NULL, so what is the value?" → NULL. Chain assembled: `LEFT OUTER JOIN` adds a NULL row → `sum` skips NULL → no inputs → NULL |
 | U2 | Task 7, group `estimate_id` = 1: the value of `ei.material_id` in the group row given as 4, with no reason | Narrowing question on the four values 1, 5, 8, 4; the term "group row" had to be defined (T7). After the student said "any", the tutor stated the documentation's reason: more than one possible value |
 | U3 | Task 8, item 5: `count(expression)` said to count "all rows" when asked why it gives 12 on a `NOT NULL` column | Compared with task 1, same twelve rows, `count(description)` = 0. The student then gave the rule: rows where the expression is not NULL |
+| U4 | Task 11, item 5: the sum differs from 15080.00 because "all calculations are done after the join"; then "for each `estimate_items` row there is its own `supplier_materials` row" | Neither explains 7 rows instead of 4, and "its own row" contradicts the student's own item 1 (2, 2, 1, 2). Closed after narrowing questions, when the student quoted the rule from 7.2.1.1: a row for each matching row of T2 |
  
 ---
  
-## T — tutor (7)
+## T — tutor (9)
  
 | # | What was wrong |
 |---|---|
@@ -56,25 +61,30 @@ the wrong total. In both cases the student's own numbers were right.
 | T5 | Task 3, item 5: the origin of sums 13 and 12 pushed over three rounds, down to naming a table. One question would have done |
 | T6 | The first message opened with repository issues and question 1 together, instead of asking which to handle first. Question 1 was then repeated in full four times |
 | T7 | Task 7: "групповая строка" used with no definition. The student read it as `count(*)`, the same kind of failure as T3 after the rule against it had been agreed |
+| T8 | Task 11 given without its purpose. The query is a deliberate trap, but the task read as "compute the estimate total through a join". The student had to ask what the join was for |
+| T9 | Task 11, item 5 held two questions: the mechanism, and the comparison that shows it. The second was dropped (E12) |
  
 **Pattern.** T2 and T4 are "not checked against a source already at hand" — the
 section 6 comment, and experiment 3.2 of topic 4. T3 and T7 are the same failure:
-a notation or a term that can be read two ways. T3 and T5 cost the most turns.
+a notation or a term that can be read two ways. T8 and T9 are task design: a
+task whose point the student could not see, and an item with two questions in it.
+T3 and T5 cost the most turns.
  
 ---
  
 ## Metric
  
-| Metric | Topic 2 | Topic 3 | Topic 4 | Topic 5, steps 1–3 |
+| Metric | Topic 2 | Topic 3 | Topic 4 | Topic 5, steps 1–4 |
 |---|---|---|---|---|
 | Execution discipline | 4/10 | 3/10 | 4/10 | scored at the end |
 | Complete answers | — | weak | weak, no change | weak, no change |
 | Understanding | — | — | 7/10 | scored at the end |
  
-Execution: 10 entries over nine tasks. SQL itself had no errors — both written
+Execution: 12 entries over twelve tasks. SQL itself had no errors — both written
 queries, tasks 4 and 5, were accepted on the first send. As in topic 4, the
 failures are in the prose part of the answers.
  
-Understanding: three entries, all closed within one to three follow-up
+Understanding: four entries, all closed within one to three follow-up
 questions. U2 needed the tutor to define a term and state the reason from the
-documentation; U1 and U3 closed without the answer being given.
+documentation; U1, U3 and U4 closed without the answer being given. Tasks 10 and
+12 were answered completely and correctly on the first send.
