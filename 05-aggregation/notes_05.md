@@ -185,7 +185,8 @@ selects group rows after
  
 - Of the 13 rows from `FROM`, `WHERE` drops four: `estimate_items.id` 6, 9, 12,
   and the row added for estimate 5 (`NULL > 1000` is NULL). 9 rows remain.
-- 5 groups: 1 — 15080.00, 2 — 1080.00, 3 — 13560.00, 4 — 1380.00, 6 — 9480.00.
+- 5 groups: 1 — 15080.00, 2 — 1080.00, 3 — 13560.00, 4 — 1380.00,
+  6 — 9480.00.
 - Check: sum of `estimate_total` = 40580.00 = sum of the nine rows `WHERE` kept.
   Dropped rows: 208.00 + 405.00 + 250.00 = 863.00; 40580.00 + 863.00 = 41443.00.
 - Estimate 5 disappears at `WHERE`. A condition on a column of the right table in
@@ -230,7 +231,8 @@ One row: 12 and 10
  
 - Repeated values: `ei.material_id` 4 in `estimate_items.id` 4 and 5; 11 in
   `estimate_items.id` 6 and 12.
-- Distinct values: 1, 2, 3, 4, 5, 6, 8, 9, 10, 11 — ten. 12 rows − 2 repeats = 10.
+- Distinct values: 1, 2, 3, 4, 5, 6, 8, 9, 10, 11 — ten.
+  12 rows − 2 repeats = 10.
 - `item_rows` is 12 because `count(expression)` counts rows where the expression is
   not NULL, and `NOT NULL` on `estimate_items.material_id` leaves no NULL to skip.
   Same rule as task 1, where all twelve `description` values were NULL and the count
@@ -258,8 +260,8 @@ FROM supplier_materials AS sm;
 - With divisor 13 the result would be 2.23. They differ, so NULL enters neither the
   sum nor the divisor.
 - `avg` of an `integer` column is `numeric`, hence 2.4166…, not 2.
-- `min_days` = 0 from supplier 6, materials 1 and 11. `max_days` = 7 from supplier 4,
-  material 3. The NULL row does not take part in either.
+- `min_days` = 0 from supplier 6, materials 1 and 11. `max_days` = 7 from
+  supplier 4, material 3. The NULL row does not take part in either.
 ---
  
 ## 5. Step 4: GROUP BY on two columns, row multiplication, min / max over a join
@@ -352,15 +354,101 @@ ORDER BY ei.id;
   so the group holds one value.
 ---
  
-## 6. Practice
+## 6. Step 5: aggregate in WHERE, ON against WHERE, HAVING over a join
  
-- Twelve tasks so far. Two queries written by the student, tasks 4 and 5, both
+**6.1 An aggregate in `WHERE`.**
+ 
+```sql
+SELECT e.id, sum(ei.total) AS estimate_total
+FROM estimates AS e
+LEFT OUTER JOIN estimate_items AS ei ON e.id = ei.estimate_id
+WHERE sum(ei.total) > 10000
+GROUP BY e.id
+ORDER BY e.id;
+```
+ 
+Not run; the student predicted the error and named the clause. Aggregate functions
+can appear only in the select list or in `HAVING`
+([4.2.7](https://www.postgresql.org/docs/17/sql-expressions.html#SYNTAX-AGGREGATES)).
+`WHERE` is evaluated before aggregate results exist; `HAVING` after. The condition
+belongs in `HAVING sum(ei.total) > 10000`, after `GROUP BY`; it returns estimates 1
+and 3 (3.3).
+ 
+**6.2 `ON` against `WHERE` when counting the right table.**
+ 
+Query A, condition in `ON`; query B, the same condition in `WHERE`:
+ 
+```sql
+-- A
+SELECT s.id AS id, count(e.id) AS approved_estimates
+FROM sites AS s
+LEFT OUTER JOIN estimates AS e ON e.site_id = s.id AND e.status = 'approved'
+GROUP BY s.id
+ORDER BY s.id;
+-- B: ON e.site_id = s.id only, and WHERE e.status = 'approved'
+```
+ 
+| sites.id | A: approved_estimates | B: approved_estimates |
+|---|---|---|
+| 1 | 1 | 1 |
+| 2 | 1 | 1 |
+| 3 | 1 | 1 |
+| 4 | 0 | — |
+| 5 | 0 | — |
+| 6 | 0 | — |
+ 
+A returns 6 rows, B returns 3. Both sums are 3 = the approved estimates in the data
+(`estimates.id` 1, 3, 6).
+ 
+Site 4 has one estimate, `estimates.id` = 4, status `rejected`.
+ 
+- **In A** the condition of `ON` is
+  `e.site_id = s.id AND e.status = 'approved'`. For the pair (site 4, estimate 4)
+  the first part is true, the second false, so the whole condition is false and
+  the pair is never formed. Site 4 has no pair, so `LEFT OUTER JOIN` adds one row
+  with NULL in every `estimates` column. The site stays in the result with 0.
+- **In B** the join forms the pair (4, 4, `rejected`). `WHERE` then discards it:
+  `rejected = 'approved'` is false. Site 4 has no rows left, so its group does not
+  exist. The outer join collapsed into an inner join: rules_04, 7.3.
+- **`count(*)` in A** would give 1 for all six sites, sum 6. Each group holds one
+  row, and in sites 4, 5 and 6 that row is the one the outer join added. A site
+  with one approved estimate and a site with none would look the same. After a
+  `LEFT OUTER JOIN`, count a column of the right table that is not NULL in a real
+  row: `e.id`.
+**6.3 `HAVING count(e.id) = 0` finds left rows without a match.**
+ 
+```sql
+SELECT s.id AS id
+FROM sites AS s
+LEFT OUTER JOIN estimates AS e ON e.site_id = s.id AND e.status = 'approved'
+GROUP BY s.id
+HAVING count(e.id) = 0
+ORDER BY s.id;
+```
+ 
+3 rows: sites 4, 5, 6. `HAVING` excluded 3 groups (1, 2, 3); 3 + 3 = 6 = rows of
+`sites`.
+ 
+- In the group of site 4 the single row has `e.id` NULL. `count(expression)` skips
+  NULL (4.2.7), so the value is 0.
+- `HAVING count(*) = 0` returns no rows. `count(*)` is 1 in each of the six groups:
+  one row from the join in groups 1, 2, 3 and one added row in groups 4, 5, 6. A
+  group made by `GROUP BY` holds at least one row, so `count(*)` is never 0.
+- This is the aggregate form of `LEFT OUTER JOIN` + `IS NULL` from topic 4
+  (rules_04, section 10), with the same condition: the counted column must not be
+  NULL in a real row.
+---
+ 
+## 7. Practice
+ 
+- Fifteen tasks so far. Two queries written by the student, tasks 4 and 5, both
   correct on the first send.
-- Predictions checked from the other side: tasks 2, 3, 4, 5, 6, 8, 9, 10, 11, 12.
+- Predictions checked from the other side: tasks 2, 3, 4, 5, 6, 8, 9, 10, 11,
+  12, 14, 15.
 - Not done: PGExercises, sections Joins and Aggregates.
 ---
  
-## 7. Open questions
+## 8. Open questions
  
 1. **Five migrations with transposed dates** (1.2). End of this topic.
 2. **`schema-design.md`, four drifts** (1.4). End of this topic.
@@ -380,7 +468,7 @@ ORDER BY ei.id;
    line estimated in kg and catalogued in t. Task for a later step.
 ---
  
-## 8. How the tutoring should run (for the next chat)
+## 9. How the tutoring should run (for the next chat)
  
 Carried from topic 4:
  
@@ -411,3 +499,8 @@ Added in this topic:
   text of the documentation; what is needed; what to output; relation; data;
   requirements; what to send, numbered.
 - Every aggregate in a given query carries an `AS` label.
+- No wording that can be read two ways. "Before" and "after" always name both
+  points: "after `ON`, before `WHERE`". "Join" says whether it means the whole
+  `LEFT OUTER JOIN` or one pair of rows. No "it" or "this" for a table, a column or
+  a step. A question the student calls ambiguous is rewritten, not defended.
+- An item asks for what the task text says, nothing added afterwards.
