@@ -8,11 +8,11 @@ Kept in two parts, because the two move independently:
 A third part, **T**, records the tutor's own errors.
  
 Records were kept during the session and written at the end of each major step.
-This file covers steps 1 to 6, the first sixteen tasks.
+This file covers steps 1 to 7, the first seventeen tasks.
  
 ---
  
-## E — execution (21)
+## E — execution (22)
  
 | # | What happened | Note |
 |---|---|---|
@@ -37,8 +37,9 @@ This file covers steps 1 to 6, the first sixteen tasks.
 | E19 | Task 16, groups 2 and 8 — `count` given as NULL instead of 0 (`item_rows` of group 2; `d_rows`, `deliveries`, `item_rows` of group 8) | The value 0 for an all-NULL group had been given in task 3, estimate 5. Mechanism known, lost in a larger table |
 | E20 | Task 16, item 4 — "это одна поставка" given as the reason why delivery 1 stands in two rows | Restates the premise. Closed with a narrowing question (U6) |
 | E21 | Task 16, item 4 — asked what `count(d.id)` and `count(DISTINCT d.id)` count in the group of supplier 1; the answer was the general principle of `DISTINCT`, nothing about `count(d.id)` | Closed with two single-function questions: both answered correctly |
+| E22 | Task 17, item 1 — asked for the word and the clause; the word (`estimate_total`) given, the clause not named | The student called the question ambiguous (T18). Closed after the rewritten question: `HAVING` |
  
-**Pattern.** E1, E2, E3, E6, E9, E12 and E13 are the same failure as topics 3
+**Pattern.** E1, E2, E3, E6, E9, E12, E13 and E22 are the same failure as topics 3
 and 4: the part of the task that is prose rather than a number or code gets
 dropped. Fifth topic running. E14 and E15 are close to it: the result is right,
 the "why" is given at the level of the subject area or for part of the cases.
@@ -72,7 +73,7 @@ delivery 1 in task 16). U5 is a separate gap: `count` and `GROUP BY` confused.
  
 ---
  
-## T — tutor (17)
+## T — tutor (19)
  
 | # | What was wrong |
 |---|---|
@@ -86,39 +87,41 @@ delivery 1 in task 16). U5 is a separate gap: `count` and `GROUP BY` confused.
 | T8 | Task 11 given without its purpose. The query is a deliberate trap, but the task read as "compute the estimate total through a join". The student had to ask what the join was for |
 | T9 | Task 11, item 5 held two questions: the mechanism, and the comparison that shows it. The second was dropped (E12) |
 | T10 | Task 14, item 3: after the first answer the tutor demanded that the student name the table whose columns hold NULL. The item did not ask for it; the student objected, correctly |
-| T11 | Task 14, follow-up to E13: "перестаёт участвовать в соединении до его выполнения или после?" — "до" and "после" with no point named, "соединение" for either the whole `LEFT OUTER JOIN` or one pair of rows. The student answered the wrong reading and asked for an unambiguous question. Rule recorded in notes_05, section 10 |
+| T11 | Task 14, follow-up to E13: "перестаёт участвовать в соединении до его выполнения или после?" — "до" and "после" with no point named, "соединение" for either the whole `LEFT OUTER JOIN` or one pair of rows. The student answered the wrong reading and asked for an unambiguous question. Rule recorded in notes_05, section 11 |
 | T12 | Task 15, item 5: "сумма исключённых и оставленных групп" — the student read it as two sums |
 | T13 | Task 16, item 1: a row count over three tables and two joins, with no scaffold. The student asked whether he must count it in his head. The scaffold (steps by the first join, then the second) was added |
-| T14 | Task 16, item 6: sums of six numbers asked for, and the sum written as an expression rejected. The student: "это уже арифметика, а не sql". Right. Rule recorded in notes_05, section 10 |
+| T14 | Task 16, item 6: sums of six numbers asked for, and the sum written as an expression rejected. The student: "это уже арифметика, а не sql". Right. Rule recorded in notes_05, section 11 |
 | T15 | Task 16, item 4: the wording "отбрасывает одинаковые строки" corrected to "значения". The student objected that his answer need not match the wording of the documentation. Right: the correction was a nitpick |
 | T16 | Task 2 follow-up and notes_05, 2.2: the cause of the single visible column ("the SQL Editor turns each row into an object, the second key overwrites the first") stated as fact. It was an assessment: only the symptom was observed. Marked as an assessment in notes_05 now |
 | T17 | Task 4, "Где читать": "таблица 9.62" named from memory. The page of version 17 could not be opened in this session, so the table number is unchecked and may differ. The paragraph itself and its wording are from 9.21 |
+| T18 | Task 17, item 1: "какое слово из запроса она называет несуществующим столбцом" — "несуществующий" read as a column absent from the table, or as a label declared in `SELECT` and not visible in `HAVING`. The student called the question ambiguous, correctly. Rewritten as a choice of two clauses |
+| T19 | Task 17: the "Кратко" text and the link are for the `SELECT` page of version 17, which could not be opened. The wording came from search results for older versions. Disclosed in the task text, but the summary was not confirmed against the page it points to. Open question 8 in notes_05 |
  
 **Pattern.** T2 and T4 are "not checked against a source already at hand" — the
-section 6 comment, and experiment 3.2 of topic 4. T3, T7, T11 and T12 are the
-same failure: a notation, a term or a phrase that can be read two ways. T8 and T9
-are task design: a task whose point the student could not see, and an item with
-two questions in it. T10 added a requirement the item did not contain. T3, T5 and
-T11 cost the most turns.
+section 6 comment, and experiment 3.2 of topic 4. T3, T7, T11, T12 and T18 are
+the same failure: a notation, a term or a phrase that can be read two ways. T8
+and T9 are task design: a task whose point the student could not see, and an
+item with two questions in it. T10 added a requirement the item did not contain.
+T3, T5 and T11 cost the most turns.
  
 T13, T14 and T15 are about how much an item demands: more than the single step it
 tests (T13, T14), or a wording beyond the point (T15). T16 and T17 are statements
 made with more certainty than the evidence gave: a cause not checked, a table
-number not checked.
+number not checked. T19 is the same kind, with the gap disclosed.
  
 ---
  
 ## Metric
  
-| Metric | Topic 2 | Topic 3 | Topic 4 | Topic 5, steps 1–6 |
+| Metric | Topic 2 | Topic 3 | Topic 4 | Topic 5, steps 1–7 |
 |---|---|---|---|---|
 | Execution discipline | 4/10 | 3/10 | 4/10 | scored at the end |
 | Complete answers | — | weak | weak, no change | scored at the end |
 | Understanding | — | — | 7/10 | scored at the end |
  
-Execution: 21 entries over sixteen tasks. SQL itself had no errors — both written
-queries, tasks 4 and 5, were accepted on the first send. As in topic 4, the
-failures are in the prose part of the answers.
+Execution: 22 entries over seventeen tasks. SQL itself had no errors — both
+written queries, tasks 4 and 5, were accepted on the first send. As in topic 4,
+the failures are in the prose part of the answers.
  
 Understanding: six entries, all closed within one to four follow-up questions.
 U2 and U5 needed the tutor to define a term or to quote the rule; U1, U3, U4 and
