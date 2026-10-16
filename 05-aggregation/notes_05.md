@@ -535,16 +535,66 @@ values is NULL (3.2).
   before `GROUP BY`.
 ---
  
-## 8. Practice
+## 8. Step 7: output labels in HAVING, GROUP BY and ORDER BY
  
-- Sixteen tasks so far. Two queries written by the student, tasks 4 and 5, both
+Task 17.
+ 
+Source: the `output_name` parameter of the `SELECT` page
+([sql-select](https://www.postgresql.org/docs/17/sql-select.html)). The page of
+version 17 could not be opened in this session. The wording was seen in search
+results for older versions: the label can be used in `ORDER BY` and `GROUP BY`, it
+cannot be used in `WHERE` or `HAVING`, there the expression is written out. Not
+confirmed on the version 17 page. Both queries below were run on the live
+database, so the behaviour itself is a fact.
+ 
+**8.1 A label in `HAVING` fails.**
+ 
+```sql
+SELECT e.id, sum(ei.total) AS estimate_total
+FROM estimates AS e
+LEFT OUTER JOIN estimate_items AS ei ON ei.estimate_id = e.id
+GROUP BY e.id
+HAVING estimate_total > 10000;
+```
+ 
+Error `42703: column "estimate_total" does not exist`. The label is declared in the
+select list and used in `HAVING`. Fix: write the expression,
+`HAVING sum(ei.total) > 10000`. The same holds for `WHERE`.
+ 
+**8.2 A label in `GROUP BY` and `ORDER BY` works.**
+ 
+```sql
+SELECT e.status AS st, count(*) AS n
+FROM estimates AS e
+GROUP BY st
+ORDER BY n DESC, st;
+```
+ 
+4 rows:
+ 
+| st | n |
+|---|---|
+| approved | 3 |
+| draft | 1 |
+| rejected | 1 |
+| sent | 1 |
+ 
+- `n DESC` puts `approved` first; the three groups with `n` = 1 follow in the order
+  of `st`.
+- Check: sum of `n` = 6 = rows of `estimates`. `estimates.status` is `NOT NULL`,
+  so each row falls into exactly one group.
+---
+ 
+## 9. Practice
+ 
+- Seventeen tasks so far. Two queries written by the student, tasks 4 and 5, both
   correct on the first send.
 - Predictions checked from the other side: tasks 2, 3, 4, 5, 6, 8, 9, 10, 11,
-  12, 14, 15, 16.
+  12, 14, 15, 16, 17.
 - Not done: PGExercises, sections Joins and Aggregates.
 ---
  
-## 9. Open questions
+## 10. Open questions
  
 1. **Five migrations with transposed dates** (1.2). End of this topic.
 2. **`schema-design.md`, four drifts** (1.4). End of this topic.
@@ -562,9 +612,12 @@ values is NULL (3.2).
 7. **Plan against catalogue price.** Comparing `estimate_items.unit_price` with
    `supplier_materials.price` needs the unit conversion tables: topic 4 planted a
    line estimated in kg and catalogued in t. Task for a later step.
+8. **Not checked against the version 17 pages:** the text of `output_name` on the
+   `SELECT` page (step 7), and the number of the table in 9.21 named in task 4
+   (T17 in mistakes_05). Open both pages and compare.
 ---
  
-## 10. How the tutoring should run (for the next chat)
+## 11. How the tutoring should run (for the next chat)
  
 Carried from topic 4:
  
