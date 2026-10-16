@@ -29,7 +29,8 @@ to the end of this topic.
  
 Tables were created by pasting SQL into the SQL Editor. The only tables with
 "migration" in the name belong to Supabase itself, in schemas `auth`, `storage` and
-`realtime`. Schema `supabase_migrations` does not exist.
+`realtime`. Checked against `information_schema.schemata`: schema
+`supabase_migrations` does not exist.
  
 Assessment, not fact: renaming the local files does not affect the remote project.
 But `supabase db push` into this project would try to apply every migration from the
@@ -48,8 +49,8 @@ to the end of this topic.
    described in sections 10 and 11.
 **1.5 Estimate revisions.**
  
-The topic 4 summary said the migration had no `revision` column; that was out of
-date. `20261109124600_estimate_revisions.sql` adds it, and all six rows in the live
+The topic 4 notes said the migration has no `revision` column; that was wrong,
+the file `20261109124600_estimate_revisions.sql` adds it. All six rows in the live
 database have `revision = 1`.
  
 Still open, from `notes.md` (topic 1), open question 6: which revision is in force.
@@ -64,6 +65,8 @@ one estimate added to the data first; which rows is decided at that point.
 ---
  
 ## 2. Step 1: count, one group, GROUP BY, count over an outer join
+ 
+Tasks 1, 2, 3.
  
 **2.1 `count(*)` against `count(column)`.**
  
@@ -83,15 +86,18 @@ With aggregates and no `GROUP BY` the result is a single row.
 `SELECT count(*), count(description)` without `AS`: both output columns are named
 `count`, after the function
 ([7.3.2](https://www.postgresql.org/docs/17/queries-select-lists.html#QUERIES-COLUMN-LABELS)).
-Postgres returns both. The SQL Editor turns each row into an object keyed by column
-name, so the second key overwrites the first and only one column is shown. Same as
-topic 4, experiment 3.2 (`s.name, m.name`). Fixed by labelling every aggregate.
+Postgres returns both columns. The student saw only one in the SQL Editor.
+ 
+Assessment, not fact: the client turns each row into an object keyed by column
+name, so the second `count` overwrites the first. Not checked in the client's own
+code. Same picture as topic 4, experiment 3.2 (`s.name, m.name`). Fixed by
+labelling every aggregate.
  
 **2.3 `GROUP BY` forms groups only from rows that exist.**
  
 `SELECT estimate_id, count(*) FROM estimate_items GROUP BY estimate_id` — 5 rows:
  
-| estimate_items.estimate_id | count(*) |
+| estimate_id | count |
 |---|---|
 | 1 | 4 |
 | 2 | 2 |
@@ -138,6 +144,8 @@ Why the check matters: in topic 4, experiment 3.4, estimate 1 joined to
  
 ## 3. Step 2: sum, NULL, HAVING, WHERE against HAVING
  
+Tasks 4, 5, 6.
+ 
 **3.1 Estimate totals.**
  
 ```sql
@@ -148,7 +156,7 @@ GROUP BY e.id
 ORDER BY e.id;
 ```
  
-| estimates.id | estimates.number | estimate_total |
+| id | number | estimate_total |
 |---|---|---|
 | 1 | EST-2025-001 | 15080.00 |
 | 2 | EST-2025-014 | 1288.00 |
@@ -156,6 +164,8 @@ ORDER BY e.id;
 | 4 | EST-2025-019 | 1380.00 |
 | 5 | EST-2026-003 | NULL |
 | 6 | EST-2024-007 | 9730.00 |
+ 
+Column `number` is `estimates.number`, not in the query; added for reference.
  
 Check: sum of `estimate_total` = 41443.00 = sum of all twelve
 `estimate_items.total`.
@@ -194,6 +204,8 @@ selects group rows after
 ---
  
 ## 4. Step 3: columns outside GROUP BY, DISTINCT, avg / min / max
+ 
+Tasks 7, 8, 9.
  
 **4.1 A column that is not in `GROUP BY` and not inside an aggregate.**
  
@@ -265,6 +277,8 @@ FROM supplier_materials AS sm;
 ---
  
 ## 5. Step 4: GROUP BY on two columns, row multiplication, min / max over a join
+ 
+Tasks 10, 11, 12.
  
 **5.1 `GROUP BY` on two columns.**
  
@@ -356,6 +370,8 @@ ORDER BY ei.id;
  
 ## 6. Step 5: aggregate in WHERE, ON against WHERE, HAVING over a join
  
+Tasks 13, 14, 15.
+ 
 **6.1 An aggregate in `WHERE`.**
  
 ```sql
@@ -397,8 +413,8 @@ ORDER BY s.id;
 | 5 | 0 | — |
 | 6 | 0 | — |
  
-A returns 6 rows, B returns 3. Both sums are 3 = the approved estimates in the data
-(`estimates.id` 1, 3, 6).
+A dash means no row in the result. A returns 6 rows, B returns 3. Both sums are
+3 = the approved estimates in the data (`estimates.id` 1, 3, 6).
  
 Site 4 has one estimate, `estimates.id` = 4, status `rejected`.
  
@@ -439,16 +455,96 @@ ORDER BY s.id;
   NULL in a real row.
 ---
  
-## 7. Practice
+## 7. Step 6: GROUP BY over a chain of two outer joins
  
-- Fifteen tasks so far. Two queries written by the student, tasks 4 and 5, both
+Task 16.
+ 
+**7.1 Two `LEFT OUTER JOIN`s under `GROUP BY`.**
+ 
+```sql
+SELECT s.id AS id,
+       count(d.id) AS d_rows,
+       count(DISTINCT d.id) AS deliveries,
+       count(di.id) AS item_rows,
+       sum(di.total) AS delivered_total
+FROM suppliers AS s
+LEFT OUTER JOIN deliveries AS d ON d.supplier_id = s.id
+LEFT OUTER JOIN delivery_items AS di ON di.delivery_id = d.id
+GROUP BY s.id
+ORDER BY s.id;
+```
+ 
+Joins can be chained; without parentheses they nest left to right
+([7.2.1.1](https://www.postgresql.org/docs/17/queries-table-expressions.html#QUERIES-JOIN)).
+The second `LEFT OUTER JOIN` joins `delivery_items` to the result of the first.
+ 
+Rows before `GROUP BY`:
+ 
+- After the first join: 10 = 9 rows of `deliveries` (each has exactly one supplier)
+  + 1 added row for supplier 8, which has no delivery.
+- After the second join: 13 = 11 pairs with a row of `delivery_items`
+  + 1 row for delivery 7, which has no lines
+  + 1 row for supplier 8.
+8 groups, one per `suppliers.id`: `LEFT OUTER JOIN` keeps every row of `suppliers`.
+ 
+| id | d_rows | deliveries | item_rows | delivered_total |
+|---|---|---|---|---|
+| 1 | 3 | 2 | 3 | 3170.00 |
+| 2 | 1 | 1 | 0 | NULL |
+| 3 | 3 | 2 | 3 | 2922.50 |
+| 4 | 2 | 1 | 2 | 5420.00 |
+| 5 | 1 | 1 | 1 | 6396.00 |
+| 6 | 1 | 1 | 1 | 297.00 |
+| 7 | 1 | 1 | 1 | 184.50 |
+| 8 | 0 | 0 | 0 | NULL |
+ 
+**7.2 `count(d.id)` against `count(DISTINCT d.id)` in the group of supplier 1.**
+ 
+Group rows: (delivery 1, line 1), (delivery 1, line 2), (delivery 5, line 8).
+ 
+- Delivery 1 has two rows in `delivery_items`, so by the rule of 7.2.1.1 it
+  stands in two rows of the joined table. Delivery 5 has one.
+- `count(d.id)` counts group rows where `d.id` is not NULL: 3.
+- `count(DISTINCT d.id)` counts the different non-NULL values of `d.id` in the
+  group, 1 and 5: 2.
+- `DISTINCT` sits inside the aggregate. It changes what the aggregate counts, not
+  how many rows the join makes.
+Same mechanism as 5.2: a join multiplies rows, and `count(*)` or `count(column)`
+counts the multiplied rows. `count(DISTINCT …)` is the way to count the rows of
+the left side once.
+ 
+**7.3 Supplier 2 and supplier 8.**
+ 
+Both give `item_rows` = 0 and `delivered_total` = NULL, because `di.id` and
+`di.total` are NULL in the one row of each group.
+ 
+- Supplier 2 has delivery 7, which has no lines. `d.id` = 7 is not NULL, so
+  `d_rows` = 1 and `deliveries` = 1.
+- Supplier 8 has no delivery. `d.id` is NULL, so `d_rows` = 0 and `deliveries` = 0.
+All counts over an all-NULL column are 0, not NULL. Only `sum` over no non-NULL
+values is NULL (3.2).
+ 
+**7.4 Checks from the other side.**
+ 
+- Sum of `item_rows` = 11 = rows of `delivery_items`. Each of the 11 rows comes
+  into the join once with `di.id` not NULL; the two added rows carry NULL.
+- Sum of `delivered_total` = 18390.00 = sum of the 11 values of
+  `delivery_items.total`. Computed by the tutor, the student declined to add the
+  six numbers by hand.
+- Sum of the numbers of rows per group, 3 + 1 + 3 + 2 + 1 + 1 + 1 + 1 = 13 = rows
+  before `GROUP BY`.
+---
+ 
+## 8. Practice
+ 
+- Sixteen tasks so far. Two queries written by the student, tasks 4 and 5, both
   correct on the first send.
 - Predictions checked from the other side: tasks 2, 3, 4, 5, 6, 8, 9, 10, 11,
-  12, 14, 15.
+  12, 14, 15, 16.
 - Not done: PGExercises, sections Joins and Aggregates.
 ---
  
-## 8. Open questions
+## 9. Open questions
  
 1. **Five migrations with transposed dates** (1.2). End of this topic.
 2. **`schema-design.md`, four drifts** (1.4). End of this topic.
@@ -468,7 +564,7 @@ ORDER BY s.id;
    line estimated in kg and catalogued in t. Task for a later step.
 ---
  
-## 9. How the tutoring should run (for the next chat)
+## 10. How the tutoring should run (for the next chat)
  
 Carried from topic 4:
  
@@ -488,6 +584,8 @@ Carried from topic 4:
 - Wrong answer: do not give the right one, do not explain — ask a narrowing
   question against the student's own data, until he answers or asks for the answer.
 - Right answer: one word plus one sentence of why, then the next question.
+- Seed formatting and comment wording are the tutor's job; the student supplies the
+  content — why the data is what it is, in his own words.
 - The mistakes log is kept silently and shown only in the topic summary.
 Added in this topic:
  
@@ -504,3 +602,15 @@ Added in this topic:
   `LEFT OUTER JOIN` or one pair of rows. No "it" or "this" for a table, a column or
   a step. A question the student calls ambiguous is rewritten, not defended.
 - An item asks for what the task text says, nothing added afterwards.
+- One item of "what to send" at a time. A task is first shown with its first
+  item only; the next item comes after a correct answer to the current one.
+- The data needed for an item is repeated in the same message on request, so the
+  student does not scroll the chat.
+- The student answers in his own words. Matching the wording of the documentation
+  is not required; the answer has to address the question asked.
+- No item that tests only arithmetic. Sums of a few numbers are given by the
+  tutor. A check from the other side is asked as "with the row count of which table
+  must it match".
+- A statement that comes from neither the documentation nor a query result is
+  marked as an assessment. A table number or a section name taken from memory is
+  checked against the page of the version in use, or marked as unchecked.
