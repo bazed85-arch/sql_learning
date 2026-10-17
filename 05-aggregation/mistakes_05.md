@@ -8,11 +8,11 @@ Kept in two parts, because the two move independently:
 A third part, **T**, records the tutor's own errors.
  
 Records were kept during the session and written at the end of each major step.
-This file covers steps 1 to 8, the first eighteen tasks.
+This file covers steps 1 to 9, the first twenty tasks.
  
 ---
  
-## E — execution (22)
+## E — execution (30)
  
 | # | What happened | Note |
 |---|---|---|
@@ -38,6 +38,14 @@ This file covers steps 1 to 8, the first eighteen tasks.
 | E20 | Task 16, item 4 — "это одна поставка" given as the reason why delivery 1 stands in two rows | Restates the premise. Closed with a narrowing question (U6) |
 | E21 | Task 16, item 4 — asked what `count(d.id)` and `count(DISTINCT d.id)` count in the group of supplier 1; the answer was the general principle of `DISTINCT`, nothing about `count(d.id)` | Closed with two single-function questions: both answered correctly |
 | E22 | Task 17, item 1 — asked for the word and the clause; the word (`estimate_total`) given, the clause not named | The student called the question ambiguous (T18). Closed after the rewritten question: `HAVING` |
+| E23 | Task 19, item 1 — rows after both joins and "из каких частей складывается число" — the number 13 sent, the parts not | The student asked what "частей" means (T22). Closed after the rewritten question: 4, 1, 2, 3, 1, 1, 1 |
+| E24 | Task 19, item 2 — the number of result rows and the source of the number asked for; a table of group sizes (5, 2, 3, 1, 1, 1) sent instead, right but not what was asked | The number 6 came on the repeat, the table `sites` after one question. The follow-up "why can `LEFT OUTER JOIN` not lower it" (T24) was answered: "присваивает ей значение null" |
+| E25 | Task 19, item 3 — groups 4, 5, 6: `e_rows`, `approved_estimates` and `item_rows` written as 1, 1, 1 instead of 0, 0, 0 | Closed with one question on group 4. The same distinction as in task 15 (E15): `count(*)` counts the added row, `count(column)` does not |
+| E26 | Task 19, item 3 — group 1: `e_rows` 2 and `approved_estimates` 1 instead of 5 and 2; groups 2 and 3: `e_rows` 1 and 1 instead of 2 and 3 | One narrowing question on group 1: the student answered 4, the count for `estimate_items.id`, another column, then 0 NULLs among the five `estimates.id`. After that groups 1, 2 and 3 were right |
+| E27 | Task 19, item 3 — `planned_total` of groups 4, 5, 6 written as 0 instead of NULL | Closed at once with a pointer to estimate 5 of task 4. Third time on the rule that an aggregate over no non-NULL values is NULL (U1, U7) |
+| E28 | Task 20, item 2 — "по какому правилу из раздела 7.2.1.1" — the rule never named by the student | The tutor quoted the rule at a narrowing step, and the item was closed with the number 30 alone (T26) |
+| E29 | Task 20, item 3 — two factors asked for (`sum(ei.total)` and `sum(di.total)`); only the first, 6, sent | The second factor, 5, after one narrowing question (T26) |
+| E30 | Task 20, item 4 — the values 30 and 6 sent; the second half, what the comparison shows, not sent | The student: "не понимаю вопроса" (T27). After the rewrite: "не равны", and he asked the tutor to formulate what that says. The formulation is the tutor's |
  
 **Pattern.** E1, E2, E3, E6, E9, E12, E13 and E22 are the same failure as topics 3
 and 4: the part of the task that is prose rather than a number or code gets
@@ -53,9 +61,17 @@ group checked alone: every one of the eight groups was answered correctly when
 asked separately. E19 is a regression: the same value, 0, was given correctly in
 task 3.
  
+E23, E24, E28 and E30 are the same failure again: the half of an item that is
+prose is dropped. In E23 and E30 the wording of the question was at fault as well
+(T22, T27). E25 and E27 are regressions in one table, the six rows of task 19: the
+added row counted by `count(column)` (the distinction of task 15) and `sum` over
+NULL given as 0 (the rule of task 4). Each closed with one question. In E26 the
+count of group 1 was first given for another column, a quantity other than the one
+asked, as in E5, E7 and E11.
+ 
 ---
  
-## U — understanding (7)
+## U — understanding (9)
  
 | # | What was wrong | How it was closed |
 |---|---|---|
@@ -66,6 +82,8 @@ task 3.
 | U5 | Task 16: `count` described as "складывает количество строк по признаку suppliers.id у которых оно равно" — the work of `GROUP BY` given to `count` | The student could not recall the rule. The tutor quoted 4.2.7: the aggregate is called for rows where the expression is not NULL. Then per group: in how many rows of the group is `deliveries.id` not NULL → 3 |
 | U6 | Task 16, item 4: delivery 1 stands in two rows "потому что она соединяется по заданному условию и нет ограничения distinct" — `DISTINCT` named as the reason for the join's row count | `DISTINCT` works inside `count(DISTINCT …)`, not in the join. Closed with: how many rows of `delivery_items` meet the condition for delivery 1 → 2; the rule of 7.2.1.1 then applied |
 | U7 | Task 18, item 7: `max(revision) + 1` for a number with no rows in `estimates` given as 1. The student: "правило не помню. предположу что 1" | The same rule as `sum` of an empty group in task 4 (U1): an aggregate over no rows is NULL. Closed with the estimate 5 example from task 4: `sum` → NULL. Then `max` of no rows → NULL, and `NULL + 1` → NULL. The row count (1) was right |
+| U8 | Task 19, item 4: `e_rows` 5 against `approved_estimates` 2 explained by "у нее несколько ревизий, и distinct убирая совпадения оставляет только одну необходимую ревизию" | Estimates 1 and 7 are different numbers (`EST-2025-001`, `EST-2025-014`); the tutor said so, and that `DISTINCT` keeps every different value (T25). Then four questions on the values 1, 1, 1, 1, 7: rows with `estimates.id` = 1 → 4; `count(e.id)` counts the rows where it is not NULL, repeats included → 5; `count(DISTINCT e.id)` counts the different values → "1 и 7" → 2 |
+| U9 | Task 20, item 2: rows with `s.id` = 1 after the fourth part given as "6 строк и одна будет null"; then 5 for the number of `delivery_items` rows that meet the condition for one row of T1 (6 expected); then 11 = 5 + 6 as the total | The rule of 7.2.1.1 applied as an addition. The tutor wrote out one row of T1, which gave 6; then stated that each of the five rows meets the same six (T28); the total was still 11. Closed with: rows 1 to 4 give 6 each → 30. The rule itself was quoted by the tutor from the student's answer in task 11 |
  
 **Pattern.** U4 and U6 are the same mechanism, rows multiplied by a join,
 explained wrongly twice, in task 11 and in task 16. Both times the numbers were
@@ -74,9 +92,15 @@ delivery 1 in task 16). U5 is a separate gap: `count` and `GROUP BY` confused.
 U1 and U7 are the same rule, an aggregate over no rows is NULL: explained in task
 4, not recalled in task 18 for `max`.
  
+U9 is the third time the rule of 7.2.1.1 about multiplied rows is explained wrongly
+(U4, U6, U9). Each time the single numbers were right when asked one row at a time
+(5 and 6 in task 20). U8 is a reason given in terms of the subject area instead of
+the mechanism, as in E14 and E15, together with a wrong description of `DISTINCT`
+that task 16 (E21) had already closed.
+ 
 ---
  
-## T — tutor (21)
+## T — tutor (28)
  
 | # | What was wrong |
 |---|---|
@@ -90,17 +114,24 @@ U1 and U7 are the same rule, an aggregate over no rows is NULL: explained in tas
 | T8 | Task 11 given without its purpose. The query is a deliberate trap, but the task read as "compute the estimate total through a join". The student had to ask what the join was for |
 | T9 | Task 11, item 5 held two questions: the mechanism, and the comparison that shows it. The second was dropped (E12) |
 | T10 | Task 14, item 3: after the first answer the tutor demanded that the student name the table whose columns hold NULL. The item did not ask for it; the student objected, correctly |
-| T11 | Task 14, follow-up to E13: "перестаёт участвовать в соединении до его выполнения или после?" — "до" and "после" with no point named, "соединение" for either the whole `LEFT OUTER JOIN` or one pair of rows. The student answered the wrong reading and asked for an unambiguous question. Rule recorded in notes_05, section 12 |
+| T11 | Task 14, follow-up to E13: "перестаёт участвовать в соединении до его выполнения или после?" — "до" and "после" with no point named, "соединение" for either the whole `LEFT OUTER JOIN` or one pair of rows. The student answered the wrong reading and asked for an unambiguous question. Rule recorded in notes_05, section 13 |
 | T12 | Task 15, item 5: "сумма исключённых и оставленных групп" — the student read it as two sums |
 | T13 | Task 16, item 1: a row count over three tables and two joins, with no scaffold. The student asked whether he must count it in his head. The scaffold (steps by the first join, then the second) was added |
-| T14 | Task 16, item 6: sums of six numbers asked for, and the sum written as an expression rejected. The student: "это уже арифметика, а не sql". Right. Rule recorded in notes_05, section 12 |
+| T14 | Task 16, item 6: sums of six numbers asked for, and the sum written as an expression rejected. The student: "это уже арифметика, а не sql". Right. Rule recorded in notes_05, section 13 |
 | T15 | Task 16, item 4: the wording "отбрасывает одинаковые строки" corrected to "значения". The student objected that his answer need not match the wording of the documentation. Right: the correction was a nitpick |
 | T16 | Task 2 follow-up and notes_05, 2.2: the cause of the single visible column ("the SQL Editor turns each row into an object, the second key overwrites the first") stated as fact. It was an assessment: only the symptom was observed. Marked as an assessment in notes_05 now |
 | T17 | Task 4, "Где читать": "таблица 9.62" named from memory. The page of version 17 could not be opened in this session, so the table number is unchecked and may differ. The paragraph itself and its wording are from 9.21 |
 | T18 | Task 17, item 1: "какое слово из запроса она называет несуществующим столбцом" — "несуществующий" read as a column absent from the table, or as a label declared in `SELECT` and not visible in `HAVING`. The student called the question ambiguous, correctly. Rewritten as a choice of two clauses |
 | T19 | Task 17: the "Кратко" text and the link are for the `SELECT` page of version 17, which could not be opened. The wording came from search results for older versions. Disclosed in the task text, but the summary was not confirmed against the page it points to. Open question 8 in notes_05 |
 | T20 | Task 18, item 7 held three questions: the number of rows, the value, and the rule behind the value. Same shape as T9. The student answered the first two and said he did not remember the third |
-| T21 | Task 18, before the two rows were inserted: the student was not told that the new rows would change results of the earlier tasks (estimates per site, groups per estimate, status counts). Found while recording the step. Rule added in notes_05, section 12 |
+| T21 | Task 18, before the two rows were inserted: the student was not told that the new rows would change results of the earlier tasks (estimates per site, groups per estimate, status counts). Found while recording the step. Rule added in notes_05, section 13 |
+| T22 | Task 19, item 1: "из каких частей складывается число" — the parts of what was not said. The student asked what the word means. The tutor then defined it as a breakdown of the 13 rows by the row of the first join |
+| T23 | Task 20, item 1: the same phrase, "из каких частей складывается число", and "проверка с другой стороны" asked again with no definition, after T22. The student: "что значит из каких частей, задавай определения без двусмысленностей, запомни это". Rule added in notes_05, section 13 |
+| T24 | Task 19, item 2 held three questions (the number of rows, the column, the source of the number), and a fourth was added in the follow-up: why `LEFT OUTER JOIN` cannot lower the number. The item text did not contain it. Same as T10 |
+| T25 | Task 19, item 4: in reply to a wrong explanation the tutor stated what `DISTINCT` does ("оставляет все различные значения") instead of asking a narrowing question only. The correction of the data (estimates 1 and 7 are different numbers) was a fact about the data and stands; the statement about `DISTINCT` was the answer |
+| T26 | Task 20, items 2, 3 and 4 each held two questions: rows and rule; two factors; values and comparison. The second part was dropped three times (E28, E29, E30). Same shape as T9 and T20. Rule added in notes_05, section 13 |
+| T27 | Task 20, item 4: "какое сравнение этих двух значений показывает, что строки размножились? Запиши его выражением из двух значений" — "сравнение" and "выражение" do not say what to write. The student: "не понимаю вопроса". Rewritten as: are the two values equal |
+| T28 | Task 20, item 2: after the right answer 6 the tutor wrote that each of the five rows of T1 meets the same six rows of `delivery_items`, which left only the multiplication to do. The next answer was still 11 (U9). A right answer gets one sentence; this one gave away the next step |
  
 **Pattern.** T2 and T4 are "not checked against a source already at hand" — the
 section 6 comment, and experiment 3.2 of topic 4. T3, T7, T11, T12 and T18 are
@@ -115,21 +146,33 @@ made with more certainty than the evidence gave: a cause not checked, a table
 number not checked. T19 is the same kind, with the gap disclosed. T20 repeats
 T9; T21 is a consequence of a data change that was not announced.
  
+T22 and T23 are one failure: a phrase that names a kind of answer, used without a
+definition, and used a second time after the student had asked what it meant. T24,
+T26 and T27 are item design (T9, T10, T20): more than one question in an item, a
+question added in a follow-up, a wording that does not say what to write. T25 and
+T28 break the rule of notes_05, section 13: a wrong answer gets a narrowing
+question only, a right answer gets one sentence.
+ 
 ---
  
 ## Metric
  
-| Metric | Topic 2 | Topic 3 | Topic 4 | Topic 5, steps 1–8 |
+| Metric | Topic 2 | Topic 3 | Topic 4 | Topic 5, steps 1–9 |
 |---|---|---|---|---|
 | Execution discipline | 4/10 | 3/10 | 4/10 | scored at the end |
 | Complete answers | — | weak | weak, no change | scored at the end |
 | Understanding | — | — | 7/10 | scored at the end |
  
-Execution: 22 entries over eighteen tasks. SQL itself had no errors — both
-written queries, tasks 4 and 5, were accepted on the first send. As in topic 4,
-the failures are in the prose part of the answers.
+Execution: 30 entries over twenty tasks. SQL itself had no errors — both
+written queries, tasks 4 and 5, were accepted on the first send; in tasks 19 and 20
+the queries were given. As in topic 4, the failures are in the prose part of the
+answers, and in filling a table of several groups.
  
-Understanding: seven entries, all closed within one to four follow-up questions.
-U2 and U5 needed the tutor to define a term or to quote the rule; U1, U3, U4, U6
-and U7 closed without the answer being given. Tasks 10, 12 and 13 were answered
+Understanding: nine entries, all closed within four follow-up questions or fewer.
+U2 and U5 needed the tutor to define a term or to quote the rule; U9 needed the
+tutor to quote the rule and to state that each row meets the same six rows. U1,
+U3, U4, U6 and U7 closed without the answer being given; U8 closed after the tutor
+had stated what `DISTINCT` does (T25). Tasks 10, 12 and 13 were answered
 completely and correctly on the first send, and so were items 1 to 6 of task 18.
+In task 19 the seven rows after the first join (item 1, first half) and the clause
+in item 5 were right on the first send; in task 20 the number 14 was.
