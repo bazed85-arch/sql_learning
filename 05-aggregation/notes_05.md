@@ -5,7 +5,8 @@ database, what is still open.
  
 Data for every task was read directly from the Supabase project
 `construction-supply`. Numbers in sections 2 to 8 are for the state before step 8,
-when `estimates` had 6 rows; what changed is in 9.0.
+when `estimates` had 6 rows; what changed is in 9.0. Section 10 is for the state
+after step 8.
  
 ---
  
@@ -689,16 +690,174 @@ from 9.1. The choice between them is the student's decision.
  
 ---
  
-## 10. Practice
+## 10. Step 9: plan against fact for each site
  
-- Eighteen tasks so far. Two queries written by the student, tasks 4 and 5, both
-  correct on the first send.
+Tasks 19 and 20.
+ 
+Plan (estimates) and fact (deliveries) are counted in two separate queries. 10.3
+shows what one query over all four tables does. Numbers are for the live database
+after the two rows of 9.0.
+ 
+**10.1 Plan: approved estimates and their lines for each site (task 19).**
+ 
+```sql
+SELECT s.id AS id,
+       count(e.id) AS e_rows,
+       count(DISTINCT e.id) AS approved_estimates,
+       count(ei.id) AS item_rows,
+       sum(ei.total) AS planned_total
+FROM sites AS s
+LEFT OUTER JOIN estimates AS e ON e.site_id = s.id AND e.status = 'approved'
+LEFT OUTER JOIN estimate_items AS ei ON ei.estimate_id = e.id
+GROUP BY s.id
+ORDER BY s.id;
+```
+ 
+The condition `e.status = 'approved'` is in `ON`, not in `WHERE`. In `WHERE` it would
+remove the rows of sites 4, 5 and 6 (6.2). Four estimates are approved: 1 and 7
+(site 1), 6 (site 2), 3 (site 3).
+ 
+Rows before `GROUP BY`:
+ 
+- After the first join: 7 = 4 pairs (estimates 1, 7, 6, 3) + 1 added row each for
+  sites 4, 5 and 6.
+- After the second join: 13 = 4 (lines of estimate 1) + 1 (estimate 7, which has no
+  lines) + 2 (estimate 6) + 3 (estimate 3) + 3 (one row each for sites 4, 5, 6).
+  Per row of the first join: 4, 1, 2, 3, 1, 1, 1.
+6 groups, one per `sites.id`. `LEFT OUTER JOIN` leaves every row of `sites` with at
+least one row, so the number of groups cannot fall below the 6 rows of `sites`.
+ 
+| id | e_rows | approved_estimates | item_rows | planned_total |
+|---|---|---|---|---|
+| 1 | 5 | 2 | 4 | 15080.00 |
+| 2 | 2 | 1 | 2 | 9730.00 |
+| 3 | 3 | 1 | 3 | 13965.00 |
+| 4 | 0 | 0 | 0 | NULL |
+| 5 | 0 | 0 | 0 | NULL |
+| 6 | 0 | 0 | 0 | NULL |
+ 
+- **Site 1, `e_rows` 5 against `approved_estimates` 2.** The group holds five
+  rows, with `e.id` 1, 1, 1, 1, 7. `count(e.id)` counts the rows where `e.id` is not
+  NULL: 5. `count(DISTINCT e.id)` counts the different values: 1 and 7, so 2. The
+  four lines of estimate 1 repeat its row four times (7.2.1.1).
+- Estimates 1 and 7 are not revisions of one estimate. Estimate 1 is `EST-2025-001`
+  revision 1; estimate 7 is `EST-2025-014` revision 2. The number `EST-2025-014`
+  has three revisions for site 1 (estimates 2, 7, 8). Of them only 7 is approved, so
+  only 7 enters the group.
+- **Sites 4, 5, 6.** The one row of each group has NULL in `e.id`, `ei.id` and
+  `ei.total`. The counts are 0 (`count(column)` skips NULL, 2.4). `sum` over no
+  non-NULL values is NULL, not 0 (3.2).
+- Estimate 7 has no lines, so it adds a row with NULL and nothing to the sum:
+  `planned_total` of site 1 is the 4 lines of estimate 1, 15080.00.
+Checks from the other side:
+ 
+- Sum of `item_rows` = 4 + 2 + 3 = 9. `estimate_items` has 12 rows. Three are
+  missing: lines 5 and 6 of estimate 2 (status `sent`) and line 10 of estimate 4
+  (`rejected`). Those two estimates fail the `ON` condition of the first join, form
+  no pair with a site, and the second join has no `e.id` to match their lines to.
+- Sum of the numbers of rows per group, 5 + 2 + 3 + 1 + 1 + 1 = 13 = rows before
+  `GROUP BY`.
+- Sum of `planned_total` = 38775.00 = 15080.00 + 9730.00 + 13965.00. Computed by
+  the tutor; checked by query as the sum of `estimate_items.total` over approved
+  estimates.
+**10.2 Fact: lines of deliveries for each site (task 20).**
+ 
+```sql
+SELECT s.id AS id,
+       count(di.id) AS item_rows,
+       sum(di.total) AS delivered_total
+FROM sites AS s
+LEFT OUTER JOIN delivery_items AS di ON di.site_id = s.id
+GROUP BY s.id
+ORDER BY s.id;
+```
+ 
+`delivery_items.site_id` refers to `sites.id`. Rows before `GROUP BY`: 14 = 11 pairs
+(one per row of `delivery_items`) + 1 added row each for sites 4, 5 and 6. Per
+site: 6, 2, 3, 1, 1, 1.
+ 
+| id | item_rows | delivered_total |
+|---|---|---|
+| 1 | 6 | 14404.50 |
+| 2 | 2 | 481.50 |
+| 3 | 3 | 3504.00 |
+| 4 | 0 | NULL |
+| 5 | 0 | NULL |
+| 6 | 0 | NULL |
+ 
+Checks from the other side: sum of `item_rows` = 11 = rows of `delivery_items`; sum
+of the numbers of rows per site, 6 + 2 + 3 + 1 + 1 + 1 = 14 = rows before
+`GROUP BY`; sum of `delivered_total` = 18390.00 = sum of `delivery_items.total`.
+The sums were computed by the tutor and checked by query.
+ 
+Side by side, put together by the tutor from 10.1 and 10.2 (not the result of one
+query):
+ 
+| sites.id | planned_total (approved estimates) | delivered_total |
+|---|---|---|
+| 1 | 15080.00 | 14404.50 |
+| 2 | 9730.00 | 481.50 |
+| 3 | 13965.00 | 3504.00 |
+| 4 | NULL | NULL |
+| 5 | NULL | NULL |
+| 6 | NULL | NULL |
+ 
+**10.3 Both halves in one query: the rows multiply.**
+ 
+```sql
+FROM sites AS s
+LEFT OUTER JOIN estimates AS e ON e.site_id = s.id AND e.status = 'approved'
+LEFT OUTER JOIN estimate_items AS ei ON ei.estimate_id = e.id
+LEFT OUTER JOIN delivery_items AS di ON di.site_id = s.id
+```
+ 
+The condition of the fourth part, `di.site_id = s.id`, names neither `e` nor `ei`.
+Site 1 has 5 rows after the first three parts (10.1) and 6 rows in
+`delivery_items`. By the rule of 7.2.1.1, each of the 5 rows gets a row for every
+row of `delivery_items` that meets the condition, and all 6 do: 5 × 6 = 30 rows.
+The row of estimate 7 (NULL in `ei`) is repeated 6 times as well.
+ 
+- `sum(ei.total)`: each of the 4 lines stands 6 times, the NULL row adds nothing.
+  6 × 15080.00 = 90480.00 instead of 15080.00.
+- `sum(di.total)`: each of the 6 delivery lines stands 5 times, once per row of the
+  first three parts. 5 × 14404.50 = 72022.50 instead of 14404.50. The row of
+  estimate 7 adds nothing to the plan sum and still repeats the delivery lines.
+- Both numbers look like normal sums and no error is raised.
+Sign of the multiplication, as in 5.2: for site 1 `count(di.id)` = 30 and
+`count(DISTINCT di.id)` = 6. The two are not equal, so the same row of
+`delivery_items` stands in the joined table more than once.
+ 
+The whole query, run on the live database (the student worked only with site 1;
+sites 2 and 3 were checked by the tutor afterwards):
+ 
+| id | rows in group | count(di.id) | count(DISTINCT di.id) | sum(ei.total) | sum(di.total) |
+|---|---|---|---|---|---|
+| 1 | 30 | 30 | 6 | 90480.00 | 72022.50 |
+| 2 | 4 | 4 | 2 | 19460.00 | 963.00 |
+| 3 | 9 | 9 | 3 | 41895.00 | 10512.00 |
+| 4 | 1 | 0 | 0 | NULL | NULL |
+| 5 | 1 | 0 | 0 | NULL | NULL |
+| 6 | 1 | 0 | 0 | NULL | NULL |
+ 
+Sites 2 and 3 follow the same rule: 2 × 2 = 4 rows and 3 × 3 = 9 rows, and their sums
+are 2 and 3 times the correct ones (9730.00 × 2 = 19460.00; 481.50 × 2 = 963.00;
+13965.00 × 3 = 41895.00; 3504.00 × 3 = 10512.00).
+ 
+The way used in tasks 19 and 20: each side is aggregated in its own query, grouped
+by `sites.id`.
+ 
+---
+ 
+## 11. Practice
+ 
+- Twenty tasks so far. Two queries written by the student, tasks 4 and 5, both
+  correct on the first send. In tasks 19 and 20 the queries were given.
 - Predictions checked from the other side: tasks 2, 3, 4, 5, 6, 8, 9, 10, 11,
-  12, 14, 15, 16, 17, 18.
+  12, 14, 15, 16, 17, 18, 19, 20.
 - Not done: PGExercises, sections Joins and Aggregates.
 ---
  
-## 11. Open questions
+## 12. Open questions
  
 1. **Five migrations with transposed dates** (1.2). End of this topic.
 2. **`schema-design.md`, four drifts** (1.4). End of this topic.
@@ -723,9 +882,12 @@ from 9.1. The choice between them is the student's decision.
 9. **`seed.sql` lacks the two rows of 9.0** (`estimates.id` 7 and 8). The
    formatting is the tutor's, the reason for the data in the student's own
    words.
+10. **Plan and fact in one result.** Tasks 19 and 20 keep them in two queries
+    (10.3); the side-by-side table in 10.2 was put together by the tutor. A single
+    query that gives both without multiplying rows was not written or run.
 ---
  
-## 12. How the tutoring should run (for the next chat)
+## 13. How the tutoring should run (for the next chat)
  
 Carried from topic 4:
  
@@ -777,3 +939,10 @@ Added in this topic:
   checked against the page of the version in use, or marked as unchecked.
 - A change to the data in the live database is announced before it is made,
   together with the earlier results it will change.
+- A phrase that names a kind of answer — "из каких частей складывается число",
+  "проверка с другой стороны" — is defined in the same message: what is counted and
+  into how many summands, or the row count of which table the number must match.
+  Without it the student cannot tell what to write.
+- One item holds one question. A number and a reason, two factors, or values and a
+  comparison are separate items. Recorded from the log (T9, T20, T26), not from the
+  student's words.
