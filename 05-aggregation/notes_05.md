@@ -4,7 +4,8 @@ Working notes: what was found in the repository, what was checked against a live
 database, what is still open.
  
 Data for every task was read directly from the Supabase project
-`construction-supply`.
+`construction-supply`. Numbers in sections 2 to 8 are for the state before step 8,
+when `estimates` had 6 rows; what changed is in 9.0.
  
 ---
  
@@ -50,8 +51,9 @@ to the end of this topic.
 **1.5 Estimate revisions.**
  
 The topic 4 notes said the migration has no `revision` column; that was wrong,
-the file `20261109124600_estimate_revisions.sql` adds it. All six rows in the live
-database have `revision = 1`.
+the file `20261109124600_estimate_revisions.sql` adds it. At the start of the
+topic all six rows in the live database had `revision = 1`; since step 8, six of
+the eight.
  
 Still open, from `notes.md` (topic 1), open question 6: which revision is in force.
 Every candidate answer is an aggregate query of this topic:
@@ -59,8 +61,8 @@ Every candidate answer is an aggregate query of this topic:
 - highest `revision` per `number`;
 - highest `revision` per `number` among `status = 'approved'`;
 - `max(revision) + 1` for the next revision, currently left to the application.
-Planned as a task in the middle of this topic. Needs a second and third revision of
-one estimate added to the data first; which rows is decided at that point.
+Done in step 8: the student added two rows to `estimates` in the live database
+(section 9).
  
 ---
  
@@ -585,22 +587,125 @@ ORDER BY n DESC, st;
   so each row falls into exactly one group.
 ---
  
-## 9. Practice
+## 9. Step 8: max(revision) over estimate revisions
  
-- Seventeen tasks so far. Two queries written by the student, tasks 4 and 5, both
+Task 18.
+ 
+**9.0 Two rows added to the live database.**
+ 
+The student inserted them himself in the SQL Editor of `construction-supply`;
+checked by query afterwards.
+ 
+| estimates.id | site_id | number | revision | status | estimate_date |
+|---|---|---|---|---|---|
+| 7 | 1 | EST-2025-014 | 2 | approved | 2025-09-25 |
+| 8 | 1 | EST-2025-014 | 3 | draft | 2025-10-20 |
+ 
+`estimates` now has 8 rows and 6 distinct numbers. No rows were added to
+`estimate_items`: `max(revision)` does not need them. `seed.sql` does not contain
+the two rows yet (open question 9).
+ 
+**Effect on the earlier steps.** Sections 2 to 8 were computed while `estimates`
+had 6 rows. Run now, some of those queries give other numbers. Estimates 7 and 8
+have no lines, so they behave like estimate 5.
+ 
+- 2.4: `FROM` gives 15 rows (12 matched, plus one added row each for estimates 5,
+  7 and 8), 8 groups. Groups 7 and 8: `all_rows` 1, `item_rows` 0. Sum of
+  `all_rows` 15, sum of `item_rows` still 12. Groups checked by query.
+- 3.1: 8 rows, estimates 7 and 8 NULL; the sum is still 41443.00.
+- 3.3: still 2 rows; `HAVING` now excludes 6 groups (2, 4, 5, 6, 7, 8).
+- 3.4: `FROM` gives 15 rows, `WHERE` drops 6 (three lines under 1000 and the rows
+  added for 5, 7 and 8), 9 remain; the 5 groups are the same.
+- 6.2, query A: site 1 gives 2 (estimates 1 and 7), the other five sites are
+  unchanged, sum 4. Checked by query. Query B: site 1 gives 2, 3 rows, sum 4.
+- 6.3: unchanged, sites 4, 5, 6.
+- 8.2: approved 4, draft 2, rejected 1, sent 1; sum of `n` = 8.
+All numbers in this list were checked by query (counts of the intermediate
+rows, of the groups, of the rows left by `WHERE` and of the statuses).
+ 
+**9.1 Last revision of each number, any status.**
+ 
+```sql
+SELECT e.number, max(e.revision) AS last_rev
+FROM estimates AS e
+GROUP BY e.number
+ORDER BY e.number;
+```
+ 
+6 rows, one group per `estimates.number`:
+ 
+| number | last_rev |
+|---|---|
+| EST-2024-007 | 1 |
+| EST-2025-001 | 1 |
+| EST-2025-014 | 3 |
+| EST-2025-019 | 1 |
+| EST-2025-022 | 1 |
+| EST-2026-003 | 1 |
+ 
+`EST-2025-014` gives 3, although revision 3 is a draft.
+ 
+**9.2 Last approved revision of each number.**
+ 
+```sql
+SELECT e.number, max(e.revision) AS approved_rev
+FROM estimates AS e
+WHERE e.status = 'approved'
+GROUP BY e.number
+ORDER BY e.number;
+```
+ 
+4 rows: `EST-2024-007` 1, `EST-2025-001` 1, `EST-2025-014` 2, `EST-2025-022` 1.
+ 
+- `EST-2025-014` gives 2: revision 3 is a draft and does not enter the maximum.
+- `EST-2025-019` (rejected) and `EST-2026-003` (draft) are absent. Their only row
+  fails `WHERE`, which runs before `GROUP BY`, so no group is formed. Same
+  mechanism as 3.4 and 6.2.
+- Check: `WHERE` passes 4 rows of `estimates`, one of them of `EST-2025-014`;
+  4 groups.
+**9.3 The next revision number: `max(revision) + 1`.**
+ 
+```sql
+SELECT max(e.revision) + 1 AS next_rev
+FROM estimates AS e
+WHERE e.number = 'EST-2025-014';
+```
+ 
+One row, `next_rev` = 4: the maximum over all three revisions, draft included.
+ 
+For a number that is not in the table (`EST-2099-001`) the same query still
+returns one row, and `next_rev` is NULL, not 1. `WHERE` passes no rows, `max` of
+no rows is NULL (9.21, as `sum` in 3.2), and `NULL + 1` is NULL. Run on the live
+database. Per the topic 1 notes the application has to compute the number of a
+new revision; for a new number it would need `coalesce(max(revision), 0) + 1`.
+`coalesce` is outside this topic and was not run.
+ 
+**9.4 What the two queries decide, and what they do not.**
+ 
+The schema still does not say which revision is in force (1.5). Both candidate
+queries now exist, and they differ for exactly one number: `EST-2025-014` is 3
+by 9.1 and 2 by 9.2. The status lives on the revision, which is why 9.2 differs
+from 9.1. The choice between them is the student's decision.
+ 
+---
+ 
+## 10. Practice
+ 
+- Eighteen tasks so far. Two queries written by the student, tasks 4 and 5, both
   correct on the first send.
 - Predictions checked from the other side: tasks 2, 3, 4, 5, 6, 8, 9, 10, 11,
-  12, 14, 15, 16, 17.
+  12, 14, 15, 16, 17, 18.
 - Not done: PGExercises, sections Joins and Aggregates.
 ---
  
-## 10. Open questions
+## 11. Open questions
  
 1. **Five migrations with transposed dates** (1.2). End of this topic.
 2. **`schema-design.md`, four drifts** (1.4). End of this topic.
 3. **No migration history in the remote project** (1.3). Decide how the remote is
    updated from now on, before the first `db push`.
-4. **Which revision is in force** (1.5). Task in this topic.
+4. **Which revision is in force** (1.5, 9.4). Both candidate queries are
+   written (9.1, 9.2); the choice is open.
 5. **Carried from topic 4, unchanged.** `seed.sql` hard-codes surrogate ids; no
    `CHECK` on date consistency in `sites`; delivery line 7 dated before its site's
    `start_date`; no constraint for `from_unit_id <> materials.unit_id` in
@@ -615,9 +720,12 @@ ORDER BY n DESC, st;
 8. **Not checked against the version 17 pages:** the text of `output_name` on the
    `SELECT` page (step 7), and the number of the table in 9.21 named in task 4
    (T17 in mistakes_05). Open both pages and compare.
+9. **`seed.sql` lacks the two rows of 9.0** (`estimates.id` 7 and 8). The
+   formatting is the tutor's, the reason for the data in the student's own
+   words.
 ---
  
-## 11. How the tutoring should run (for the next chat)
+## 12. How the tutoring should run (for the next chat)
  
 Carried from topic 4:
  
@@ -667,3 +775,5 @@ Added in this topic:
 - A statement that comes from neither the documentation nor a query result is
   marked as an assessment. A table number or a section name taken from memory is
   checked against the page of the version in use, or marked as unchecked.
+- A change to the data in the live database is announced before it is made,
+  together with the earlier results it will change.
