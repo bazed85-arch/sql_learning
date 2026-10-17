@@ -8,7 +8,7 @@ Kept in two parts, because the two move independently:
 A third part, **T**, records the tutor's own errors.
  
 Records were kept during the session and written at the end of each major step.
-This file covers steps 1 to 7, the first seventeen tasks.
+This file covers steps 1 to 8, the first eighteen tasks.
  
 ---
  
@@ -55,7 +55,7 @@ task 3.
  
 ---
  
-## U — understanding (6)
+## U — understanding (7)
  
 | # | What was wrong | How it was closed |
 |---|---|---|
@@ -65,15 +65,18 @@ task 3.
 | U4 | Task 11, item 5: the sum differs from 15080.00 because "all calculations are done after the join"; then "for each `estimate_items` row there is its own `supplier_materials` row" | Neither explains 7 rows instead of 4, and "its own row" contradicts the student's own item 1 (2, 2, 1, 2). Closed after narrowing questions, when the student quoted the rule from 7.2.1.1: a row for each matching row of T2 |
 | U5 | Task 16: `count` described as "складывает количество строк по признаку suppliers.id у которых оно равно" — the work of `GROUP BY` given to `count` | The student could not recall the rule. The tutor quoted 4.2.7: the aggregate is called for rows where the expression is not NULL. Then per group: in how many rows of the group is `deliveries.id` not NULL → 3 |
 | U6 | Task 16, item 4: delivery 1 stands in two rows "потому что она соединяется по заданному условию и нет ограничения distinct" — `DISTINCT` named as the reason for the join's row count | `DISTINCT` works inside `count(DISTINCT …)`, not in the join. Closed with: how many rows of `delivery_items` meet the condition for delivery 1 → 2; the rule of 7.2.1.1 then applied |
+| U7 | Task 18, item 7: `max(revision) + 1` for a number with no rows in `estimates` given as 1. The student: "правило не помню. предположу что 1" | The same rule as `sum` of an empty group in task 4 (U1): an aggregate over no rows is NULL. Closed with the estimate 5 example from task 4: `sum` → NULL. Then `max` of no rows → NULL, and `NULL + 1` → NULL. The row count (1) was right |
  
 **Pattern.** U4 and U6 are the same mechanism, rows multiplied by a join,
 explained wrongly twice, in task 11 and in task 16. Both times the numbers were
 right when asked directly (2, 2, 1, 2 in task 11; 2 rows of `delivery_items` for
 delivery 1 in task 16). U5 is a separate gap: `count` and `GROUP BY` confused.
+U1 and U7 are the same rule, an aggregate over no rows is NULL: explained in task
+4, not recalled in task 18 for `max`.
  
 ---
  
-## T — tutor (19)
+## T — tutor (21)
  
 | # | What was wrong |
 |---|---|
@@ -87,15 +90,17 @@ delivery 1 in task 16). U5 is a separate gap: `count` and `GROUP BY` confused.
 | T8 | Task 11 given without its purpose. The query is a deliberate trap, but the task read as "compute the estimate total through a join". The student had to ask what the join was for |
 | T9 | Task 11, item 5 held two questions: the mechanism, and the comparison that shows it. The second was dropped (E12) |
 | T10 | Task 14, item 3: after the first answer the tutor demanded that the student name the table whose columns hold NULL. The item did not ask for it; the student objected, correctly |
-| T11 | Task 14, follow-up to E13: "перестаёт участвовать в соединении до его выполнения или после?" — "до" and "после" with no point named, "соединение" for either the whole `LEFT OUTER JOIN` or one pair of rows. The student answered the wrong reading and asked for an unambiguous question. Rule recorded in notes_05, section 11 |
+| T11 | Task 14, follow-up to E13: "перестаёт участвовать в соединении до его выполнения или после?" — "до" and "после" with no point named, "соединение" for either the whole `LEFT OUTER JOIN` or one pair of rows. The student answered the wrong reading and asked for an unambiguous question. Rule recorded in notes_05, section 12 |
 | T12 | Task 15, item 5: "сумма исключённых и оставленных групп" — the student read it as two sums |
 | T13 | Task 16, item 1: a row count over three tables and two joins, with no scaffold. The student asked whether he must count it in his head. The scaffold (steps by the first join, then the second) was added |
-| T14 | Task 16, item 6: sums of six numbers asked for, and the sum written as an expression rejected. The student: "это уже арифметика, а не sql". Right. Rule recorded in notes_05, section 11 |
+| T14 | Task 16, item 6: sums of six numbers asked for, and the sum written as an expression rejected. The student: "это уже арифметика, а не sql". Right. Rule recorded in notes_05, section 12 |
 | T15 | Task 16, item 4: the wording "отбрасывает одинаковые строки" corrected to "значения". The student objected that his answer need not match the wording of the documentation. Right: the correction was a nitpick |
 | T16 | Task 2 follow-up and notes_05, 2.2: the cause of the single visible column ("the SQL Editor turns each row into an object, the second key overwrites the first") stated as fact. It was an assessment: only the symptom was observed. Marked as an assessment in notes_05 now |
 | T17 | Task 4, "Где читать": "таблица 9.62" named from memory. The page of version 17 could not be opened in this session, so the table number is unchecked and may differ. The paragraph itself and its wording are from 9.21 |
 | T18 | Task 17, item 1: "какое слово из запроса она называет несуществующим столбцом" — "несуществующий" read as a column absent from the table, or as a label declared in `SELECT` and not visible in `HAVING`. The student called the question ambiguous, correctly. Rewritten as a choice of two clauses |
 | T19 | Task 17: the "Кратко" text and the link are for the `SELECT` page of version 17, which could not be opened. The wording came from search results for older versions. Disclosed in the task text, but the summary was not confirmed against the page it points to. Open question 8 in notes_05 |
+| T20 | Task 18, item 7 held three questions: the number of rows, the value, and the rule behind the value. Same shape as T9. The student answered the first two and said he did not remember the third |
+| T21 | Task 18, before the two rows were inserted: the student was not told that the new rows would change results of the earlier tasks (estimates per site, groups per estimate, status counts). Found while recording the step. Rule added in notes_05, section 12 |
  
 **Pattern.** T2 and T4 are "not checked against a source already at hand" — the
 section 6 comment, and experiment 3.2 of topic 4. T3, T7, T11, T12 and T18 are
@@ -107,23 +112,24 @@ T3, T5 and T11 cost the most turns.
 T13, T14 and T15 are about how much an item demands: more than the single step it
 tests (T13, T14), or a wording beyond the point (T15). T16 and T17 are statements
 made with more certainty than the evidence gave: a cause not checked, a table
-number not checked. T19 is the same kind, with the gap disclosed.
+number not checked. T19 is the same kind, with the gap disclosed. T20 repeats
+T9; T21 is a consequence of a data change that was not announced.
  
 ---
  
 ## Metric
  
-| Metric | Topic 2 | Topic 3 | Topic 4 | Topic 5, steps 1–7 |
+| Metric | Topic 2 | Topic 3 | Topic 4 | Topic 5, steps 1–8 |
 |---|---|---|---|---|
 | Execution discipline | 4/10 | 3/10 | 4/10 | scored at the end |
 | Complete answers | — | weak | weak, no change | scored at the end |
 | Understanding | — | — | 7/10 | scored at the end |
  
-Execution: 22 entries over seventeen tasks. SQL itself had no errors — both
+Execution: 22 entries over eighteen tasks. SQL itself had no errors — both
 written queries, tasks 4 and 5, were accepted on the first send. As in topic 4,
 the failures are in the prose part of the answers.
  
-Understanding: six entries, all closed within one to four follow-up questions.
-U2 and U5 needed the tutor to define a term or to quote the rule; U1, U3, U4 and
-U6 closed without the answer being given. Tasks 10, 12 and 13 were answered
-completely and correctly on the first send.
+Understanding: seven entries, all closed within one to four follow-up questions.
+U2 and U5 needed the tutor to define a term or to quote the rule; U1, U3, U4, U6
+and U7 closed without the answer being given. Tasks 10, 12 and 13 were answered
+completely and correctly on the first send, and so were items 1 to 6 of task 18.
