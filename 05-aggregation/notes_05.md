@@ -945,4 +945,4 @@ Added in this topic:
   Without it the student cannot tell what to write.
 - One item holds one question. A number and a reason, two factors, or values and a
   comparison are separate items. Recorded from the log (T9, T20, T26), not from the
-  student's words.
+  student's words. 
