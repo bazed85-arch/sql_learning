@@ -157,11 +157,15 @@ question only, a right answer gets one sentence.
  
 ## Metric
  
-| Metric | Topic 2 | Topic 3 | Topic 4 | Topic 5, steps 1–9 |
+| Metric | Topic 2 | Topic 3 | Topic 4 | Topic 5 |
 |---|---|---|---|---|
-| Execution discipline | 4/10 | 3/10 | 4/10 | scored at the end |
-| Complete answers | — | weak | weak, no change | scored at the end |
-| Understanding | — | — | 7/10 | scored at the end |
+| Execution discipline | 4/10 | 3/10 | 4/10 | 4/10 |
+| Complete answers | — | weak | weak, no change | 4/10, weak, no change |
+| Understanding | — | — | 7/10 | 7/10 |
+| Recording discipline | — | — | — | 7/10 |
+ 
+The topic 5 scores are the tutor's assessment from this log, given after the last
+task and accepted by the student.
  
 Execution: 30 entries over twenty tasks. SQL itself had no errors — both
 written queries, tasks 4 and 5, were accepted on the first send; in tasks 19 and 20
@@ -176,3 +180,8 @@ had stated what `DISTINCT` does (T25). Tasks 10, 12 and 13 were answered
 completely and correctly on the first send, and so were items 1 to 6 of task 18.
 In task 19 the seven rows after the first join (item 1, first half) and the clause
 in item 5 were right on the first send; in task 20 the number 14 was.
+ 
+Recording discipline: all nine steps were recorded after the student's yes, and the
+files were re-checked at his request. Three repository items were left to the end of
+the topic by his decision: the rename of five migrations, the four drifts in
+`schema-design.md`, and the two `estimates` rows missing from `seed.sql`.
