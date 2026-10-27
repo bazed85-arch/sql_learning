@@ -2,7 +2,7 @@
 
 **Block 1 · Topic 1 — Relational model & schema design**
 Target DBMS: PostgreSQL 17.6 (Supabase)
-Status: implemented. All nine tables exist in PostgreSQL 17.6 (Supabase project
+Status: implemented. All eleven tables exist in PostgreSQL 17.6 (Supabase project
 `construction-supply`). DDL lives in `supabase/migrations/`; this file is the
 authoritative description and is kept in step with the database.
 
@@ -61,6 +61,7 @@ Article numbers are unique when present; materials without one are unrestricted.
 
 `sites.actual_end_date` is the cleanest case: NULL means "not finished yet" — a
 meaningful answer, not missing data.
+
 ---
 
 ## Tables
@@ -164,7 +165,7 @@ is catalogued in bags, this table needs its own `unit_id`.
 |---|---|---|---|
 | `id` | `bigint` | PK, generated always as identity | |
 | `site_id` | `bigint` | `NOT NULL`, FK → `sites.id`, `ON DELETE RESTRICT` | FK sits on the "many" side |
-| `number` | `text` | `UNIQUE`, `NOT NULL` | Human-readable document number |
+| `number` | `text` | `NOT NULL` | Human-readable document number. Shared by all revisions of one estimate; unique only together with `revision` (see below) |
 | `revision` | `int` | `NOT NULL DEFAULT 1`, `CHECK (revision > 0)` | Version number of this estimate. A row is a *version*, not an estimate |
 | `status` | `text` | `NOT NULL`, `CHECK (status IN ('draft','sent','approved','rejected'))` | |
 | `estimate_date` | `date` | `NOT NULL` | Calendar fact |
@@ -397,16 +398,13 @@ schema design", and each will be added as a migration exercise later.
 - **Price history** — `valid_from` / `valid_to` on `supplier_materials`
   (temporal table / slowly changing dimension type 2). Adding it changes the PK
   to `(supplier_id, material_id, valid_from)`.
-- **Estimate versioning** — a revised estimate becomes a new row with its own
-  copy of the item lines, not an `UPDATE`. Requires `version`, a `superseded`
-  status, and `UNIQUE (number, version)`.
-- **Unit conversion** — the factor depends on the material, not on the unit pair
-  alone (1 t of rebar 12 mm = 1124 m; 1 t of rebar 20 mm = 405 m). A generated
-  column cannot solve it: generation expressions cannot reference other tables.
+- - **Estimate versioning, remainder** — `revision` and `UNIQUE (number, revision)`
+  are implemented (section 6). Not added: a `superseded` status. Which revision is
+  in force is still open (`notes.md`, open question 6).
 - **`EXCLUDE` constraint** with `daterange` and `btree_gist` to prevent
   overlapping validity periods.
 - **Indexes** — PK indexes are created automatically, FK indexes are **not**.
-- - **Direct link between `delivery_items` and `estimate_items`** — a nullable
+- **Direct link between `delivery_items` and `estimate_items`** — a nullable
   `estimate_item_id`. Would allow the outstanding balance to be broken down per
   estimate line, and would catch deliveries of materials not on any estimate.
   Not added now: it requires the storekeeper to pick an estimate line at goods
@@ -416,3 +414,7 @@ schema design", and each will be added as a migration exercise later.
   deliveries are recorded against sites directly.
 - **`unit_id` on `supplier_materials`** — needed if supplier quoting units differ
   from catalogue units.
+
+  Implemented and removed from this list: **unit conversion**. Both tables exist:
+`unit_conversions` for factors that do not depend on the material, and
+`material_unit_conversions` for factors that do (sections 10 and 11).
