@@ -125,7 +125,7 @@ INSERT INTO supplier_materials (supplier_id, material_id, supplier_article_no, p
   (7, 10, 'PA-BL-15',    4.10, NULL, NULL, false);
 
 -- estimates -------------------------------------------------------------------
--- Six estimates across four sites. TF-005 and TF-006 have none, EST-2026-003 has
+-- Eight estimates across four sites. TF-005 and TF-006 have none, EST-2026-003 has
 -- no lines in estimate_items. Rows without a match are there on purpose: if every
 -- site had an estimate and every estimate had lines, LEFT JOIN would return the
 -- same rows as INNER JOIN and the difference could not be seen.
@@ -133,6 +133,13 @@ INSERT INTO supplier_materials (supplier_id, material_id, supplier_article_no, p
 -- approved estimates unless the status test sits in ON.
 -- valid_until is NULL where no validity date was agreed.
 -- All four values allowed by estimates_status_chk occur.
+-- Rows 7 and 8 are revisions 2 and 3 of EST-2025-014; row 2 is its revision 1. A
+-- revision is a new row with the same number, so the earlier version is kept
+-- instead of being overwritten. Revision 2 is approved and revision 3 is a draft:
+-- max(revision) over all statuses gives 3, over approved ones gives 2, and
+-- max(revision) + 1 gives the next number, 4. The rows were added for studying
+-- aggregates. Without them every estimate has revision 1 and the queries cannot
+-- differ. Rows 7 and 8 have no lines in estimate_items.
 
 INSERT INTO estimates (site_id, number, status, estimate_date, valid_until) VALUES
   (1, 'EST-2025-001', 'approved', '2025-02-20', '2025-03-31'),   -- expected id 1
@@ -142,8 +149,15 @@ INSERT INTO estimates (site_id, number, status, estimate_date, valid_until) VALU
   (3, 'EST-2026-003', 'draft',    '2026-02-02', NULL),           -- expected id 5; no lines
   (2, 'EST-2024-007', 'approved', '2024-08-01', '2024-09-01');   -- expected id 6
 
+-- revision is listed here and not above: the first six rows take its default, 1.
+
+INSERT INTO estimates (site_id, number, revision, status, estimate_date, valid_until) VALUES
+  (1, 'EST-2025-014', 2, 'approved', '2025-09-25', NULL),        -- expected id 7
+  (1, 'EST-2025-014', 3, 'draft',    '2025-10-20', NULL);        -- expected id 8
+
 -- estimate_items --------------------------------------------------------------
--- Twelve lines across five estimates. EST-2026-003 (estimate 5) has none.
+-- Twelve lines across five estimates. EST-2026-003 (estimate 5) has none, and so
+-- do estimates 7 and 8.
 -- Line 2 of estimate 1 gives rebar 12 mm in kg while materials.unit_id is t: the
 -- unit on a line may differ from the catalogue unit, and converting it needs
 -- unit_conversions read backwards.
