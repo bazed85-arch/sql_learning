@@ -16,8 +16,8 @@ after step 8.
 `.sql`.
  
 **1.2 Five migrations with month and day transposed.** Five, not four:
-`20261109124600_estimate_revisions.sql` was missing from the topic 4 list. Deferred
-to the end of this topic.
+`20261109124600_estimate_revisions.sql` was missing from the topic 4 list. Renamed
+at the end of this topic, see below the table.
  
 | Now | Should be |
 |---|---|
@@ -26,6 +26,12 @@ to the end of this topic.
 | `20261109111200_delivery_note_unique_per_year.sql` | `20260911111200_…` |
 | `20261109124600_estimate_revisions.sql` | `20260911124600_…` |
 | `20261109151900_unit_conversions.sql` | `20260911151900_…` |
+ 
+Done on 2026-10-27: the student renamed all five files, one at a time, from the
+tutor's list of old and new names. The order of application is unchanged: the
+dates 20260910 and 20260911 sort after `20260909192200` and in the same relative
+order as before. The tutor did not see the folder afterwards. The student said
+the files will be checked in a new chat, under the new topic.
  
 **1.3 The remote project has no migration history.**
  
@@ -38,8 +44,8 @@ Assessment, not fact: renaming the local files does not affect the remote projec
 But `supabase db push` into this project would try to apply every migration from the
 start and fail on the first `CREATE TABLE`.
  
-**1.4 `schema-design.md` has drifted from the migrations in four places.** Deferred
-to the end of this topic.
+**1.4 `schema-design.md` has drifted from the migrations in four places.** Fixed
+at the end of this topic, see below the list.
  
 1. Line 5, "All nine tables" — there are eleven.
 2. Section 6, column `estimates.number` still shows `UNIQUE`. The live database has
@@ -49,6 +55,15 @@ to the end of this topic.
    `UNIQUE (number, version)` — already implemented in section 6 as `revision`.
 4. "Deferred to Block 2", item "Unit conversion" — both tables exist and are
    described in sections 10 and 11.
+Done on 2026-10-27: the student applied the four corrections by hand, one point
+at a time, from the exact text before and after given by the tutor. Before that
+the tutor checked the live database: 11 tables, `UNIQUE (number, revision)` as the
+only unique constraint on `estimates` that involves `number`, and no `superseded`
+among the allowed statuses. Two markup defects found in the same pass were fixed
+as well: a `---` directly under a paragraph in the Nullability part, which turned
+the paragraph into a heading, and a doubled bullet marker in the deferred list.
+The file was not compared with the tutor's version afterwards.
+ 
 **1.5 Estimate revisions.**
  
 The topic 4 notes said the migration has no `revision` column; that was wrong,
@@ -544,11 +559,12 @@ Task 17.
  
 Source: the `output_name` parameter of the `SELECT` page
 ([sql-select](https://www.postgresql.org/docs/17/sql-select.html)). The page of
-version 17 could not be opened in this session. The wording was seen in search
-results for older versions: the label can be used in `ORDER BY` and `GROUP BY`, it
-cannot be used in `WHERE` or `HAVING`, there the expression is written out. Not
-confirmed on the version 17 page. Both queries below were run on the live
-database, so the behaviour itself is a fact.
+version 17 could not be opened when this step was done. The wording was seen in
+search results for older versions: the label can be used in `ORDER BY` and
+`GROUP BY`, it cannot be used in `WHERE` or `HAVING`, there the expression is
+written out. Confirmed on the version 17 page on 2026-11-02 (open question 8).
+Both queries below were run on the live database, so the behaviour itself is a
+fact.
  
 **8.1 A label in `HAVING` fails.**
  
@@ -603,8 +619,8 @@ checked by query afterwards.
 | 8 | 1 | EST-2025-014 | 3 | draft | 2025-10-20 |
  
 `estimates` now has 8 rows and 6 distinct numbers. No rows were added to
-`estimate_items`: `max(revision)` does not need them. `seed.sql` does not contain
-the two rows yet (open question 9).
+`estimate_items`: `max(revision)` does not need them. `seed.sql` did not contain
+the two rows at that point (open question 9).
  
 **Effect on the earlier steps.** Sections 2 to 8 were computed while `estimates`
 had 6 rows. Run now, some of those queries give other numbers. Estimates 7 and 8
@@ -854,13 +870,33 @@ by `sites.id`.
   correct on the first send. In tasks 19 and 20 the queries were given.
 - Predictions checked from the other side: tasks 2, 3, 4, 5, 6, 8, 9, 10, 11,
   12, 14, 15, 16, 17, 18, 19, 20.
-- Not done: PGExercises, sections Joins and Aggregates.
+- PGExercises, done by the student outside the chat, by his statement, not checked
+  by the tutor: section Joins is done; section Aggregates is done up to exercise 10.
+  Two exercises of Joins use a subquery ("using no joins", "using a subquery"); the
+  student reported the section as done.
+- Exercises 11 to 22 of Aggregates are left for later, by the student's decision.
+  His first reason was that they include subqueries. The tutor checked the sample
+  answers on the site on 2026-11-02, and the reason holds only in part:
+  - main answer with neither a subquery nor a window function: 13, 14, 21, and the
+    base form of 11 (its bonus without `LIMIT` needs a subquery);
+  - `ROLLUP`: 12 (other variants: `UNION ALL`, `WITH`);
+  - window function, no subquery: 15 (a variant with a subquery in the select list
+    exists), 16, 18 (a variant with a subquery exists);
+  - subquery and window function: 17, 19, 20;
+  - subquery in every variant: 22, two of its variants also with a window function.
+  Within topics 4 and 5 the student can do 14, 13 without the number formatting,
+  and the base form of 11 (`LIMIT` is not in the records of topics 4 and 5). 21
+  needs `CASE`, 12 needs `ROLLUP`, 15, 16 and 18 need window functions. The
+  numbering follows the list of the section read on 2026-10-31; exercises 7 to 10
+  were not opened.
 ---
  
 ## 12. Open questions
  
-1. **Five migrations with transposed dates** (1.2). End of this topic.
-2. **`schema-design.md`, four drifts** (1.4). End of this topic.
+1. **Five migrations with transposed dates** (1.2). Closed: renamed by the
+   student. The check of the folder goes to a new chat.
+2. **`schema-design.md`, four drifts** (1.4). Closed: corrected by the student,
+   with two markup defects fixed in the same pass.
 3. **No migration history in the remote project** (1.3). Decide how the remote is
    updated from now on, before the first `db push`.
 4. **Which revision is in force** (1.5, 9.4). Both candidate queries are
@@ -876,15 +912,29 @@ by `sites.id`.
 7. **Plan against catalogue price.** Comparing `estimate_items.unit_price` with
    `supplier_materials.price` needs the unit conversion tables: topic 4 planted a
    line estimated in kg and catalogued in t. Task for a later step.
-8. **Not checked against the version 17 pages:** the text of `output_name` on the
-   `SELECT` page (step 7), and the number of the table in 9.21 named in task 4
-   (T17 in mistakes_05). Open both pages and compare.
-9. **`seed.sql` lacks the two rows of 9.0** (`estimates.id` 7 and 8). The
-   formatting is the tutor's, the reason for the data in the student's own
-   words.
+8. **Version 17 pages, checked on 2026-11-02 through the fetch tool. Closed.**
+   The `SELECT` page says an output column name can be used in `ORDER BY` and
+   `GROUP BY`, not in `WHERE` or `HAVING`, as in step 7. The table of
+   general-purpose aggregate functions in 9.21 is Table 9.60, so "9.62" named in
+   task 4 was wrong (T17 in mistakes_05). The page also says that, except for
+   `count`, aggregate functions return NULL when no rows are selected, and that
+   `count(expression)` counts the input rows in which the value is not null.
+9. **`seed.sql` and the two rows of 9.0** (`estimates.id` 7 and 8). The tutor
+   prepared the file: a second `INSERT` with `revision` listed, and the comments of
+   the `estimates` and `estimate_items` blocks brought up to date. The insert was
+   tested on a temporary copy of `estimates`: ids 7 and 8, every field equal to the
+   live rows. The reason in the comment is the student's, «это было необходимо для
+   обучения»; what the rows show is from step 8. The student has not confirmed that
+   the file in the repository was replaced.
 10. **Plan and fact in one result.** Tasks 19 and 20 keep them in two queries
     (10.3); the side-by-side table in 10.2 was put together by the tutor. A single
     query that gives both without multiplying rows was not written or run.
+11. **Window functions.** The sample answers of Aggregates 15, 16, 17, 18, 19 and
+    20 use them, and 22 in two of its three variants. Where the course covers them
+    is not known; the name quoted by the student for topic 6 is
+    `06-subqueries-cte`.
+12. **`CASE` and `GROUP BY ROLLUP`.** Needed for Aggregates 21 and 12. Neither is in
+    the records of topics 4 and 5; where the course covers them is not known.
 ---
  
 ## 13. How the tutoring should run (for the next chat)
@@ -939,10 +989,13 @@ Added in this topic:
   checked against the page of the version in use, or marked as unchecked.
 - A change to the data in the live database is announced before it is made,
   together with the earlier results it will change.
+- Changes to a file the student edits by hand, and explanations of a list of
+  changes, are given one point at a time: where to look, the text now, the text it
+  becomes. The next point comes after the student writes that it is done.
 - A phrase that names a kind of answer — "из каких частей складывается число",
   "проверка с другой стороны" — is defined in the same message: what is counted and
   into how many summands, or the row count of which table the number must match.
   Without it the student cannot tell what to write.
 - One item holds one question. A number and a reason, two factors, or values and a
   comparison are separate items. Recorded from the log (T9, T20, T26), not from the
-  student's words. 
+  student's words.
