@@ -100,7 +100,7 @@ that task 16 (E21) had already closed.
  
 ---
  
-## T — tutor (28)
+## T — tutor (30)
  
 | # | What was wrong |
 |---|---|
@@ -120,9 +120,9 @@ that task 16 (E21) had already closed.
 | T14 | Task 16, item 6: sums of six numbers asked for, and the sum written as an expression rejected. The student: "это уже арифметика, а не sql". Right. Rule recorded in notes_05, section 13 |
 | T15 | Task 16, item 4: the wording "отбрасывает одинаковые строки" corrected to "значения". The student objected that his answer need not match the wording of the documentation. Right: the correction was a nitpick |
 | T16 | Task 2 follow-up and notes_05, 2.2: the cause of the single visible column ("the SQL Editor turns each row into an object, the second key overwrites the first") stated as fact. It was an assessment: only the symptom was observed. Marked as an assessment in notes_05 now |
-| T17 | Task 4, "Где читать": "таблица 9.62" named from memory. The page of version 17 could not be opened in this session, so the table number is unchecked and may differ. The paragraph itself and its wording are from 9.21 |
+| T17 | Task 4, "Где читать": "таблица 9.62" named from memory. The page of version 17 could not be opened in this session, so the table number is unchecked and may differ. The paragraph itself and its wording are from 9.21. Checked on 2026-11-02: it is Table 9.60, so 9.62 was wrong |
 | T18 | Task 17, item 1: "какое слово из запроса она называет несуществующим столбцом" — "несуществующий" read as a column absent from the table, or as a label declared in `SELECT` and not visible in `HAVING`. The student called the question ambiguous, correctly. Rewritten as a choice of two clauses |
-| T19 | Task 17: the "Кратко" text and the link are for the `SELECT` page of version 17, which could not be opened. The wording came from search results for older versions. Disclosed in the task text, but the summary was not confirmed against the page it points to. Open question 8 in notes_05 |
+| T19 | Task 17: the "Кратко" text and the link are for the `SELECT` page of version 17, which could not be opened. The wording came from search results for older versions. Disclosed in the task text, but the summary was not confirmed against the page it points to. Open question 8 in notes_05. Checked on 2026-11-02: the page of version 17 says the same as the summary |
 | T20 | Task 18, item 7 held three questions: the number of rows, the value, and the rule behind the value. Same shape as T9. The student answered the first two and said he did not remember the third |
 | T21 | Task 18, before the two rows were inserted: the student was not told that the new rows would change results of the earlier tasks (estimates per site, groups per estimate, status counts). Found while recording the step. Rule added in notes_05, section 13 |
 | T22 | Task 19, item 1: "из каких частей складывается число" — the parts of what was not said. The student asked what the word means. The tutor then defined it as a breakdown of the 13 rows by the row of the first join |
@@ -132,6 +132,8 @@ that task 16 (E21) had already closed.
 | T26 | Task 20, items 2, 3 and 4 each held two questions: rows and rule; two factors; values and comparison. The second part was dropped three times (E28, E29, E30). Same shape as T9 and T20. Rule added in notes_05, section 13 |
 | T27 | Task 20, item 4: "какое сравнение этих двух значений показывает, что строки размножились? Запиши его выражением из двух значений" — "сравнение" and "выражение" do not say what to write. The student: "не понимаю вопроса". Rewritten as: are the two values equal |
 | T28 | Task 20, item 2: after the right answer 6 the tutor wrote that each of the five rows of T1 meets the same six rows of `delivery_items`, which left only the multiplication to do. The next answer was still 11 (U9). A right answer gets one sentence; this one gave away the next step |
+| T29 | End of the topic: the four corrections of `schema-design.md` were explained in one message, then sent as a whole file. The student: «давай пункт по одному а не все сразу, что менять в репозитории». Given afterwards one point at a time, with the text before and after. Rule added in notes_05, section 13 |
+| T30 | PGExercises, Aggregates: the scope was described from titles in a summary of the section page — "1–14 within the topic, 15–22 window functions". The sample answers show otherwise: 12 needs `ROLLUP`, the bonus of 11 needs a subquery, 21 needs neither a subquery nor a window function, 22 uses subqueries in every variant. The student asked for an exact check. The wording "по названиям" was there, but the table of what is covered was still given as a sorting of the exercises |
  
 **Pattern.** T2 and T4 are "not checked against a source already at hand" — the
 section 6 comment, and experiment 3.2 of topic 4. T3, T7, T11, T12 and T18 are
@@ -143,15 +145,16 @@ T3, T5 and T11 cost the most turns.
 T13, T14 and T15 are about how much an item demands: more than the single step it
 tests (T13, T14), or a wording beyond the point (T15). T16 and T17 are statements
 made with more certainty than the evidence gave: a cause not checked, a table
-number not checked. T19 is the same kind, with the gap disclosed. T20 repeats
-T9; T21 is a consequence of a data change that was not announced.
+number not checked. T19 is the same kind, with the gap disclosed, and so is T30.
+T20 repeats T9; T21 is a consequence of a data change that was not announced.
  
 T22 and T23 are one failure: a phrase that names a kind of answer, used without a
 definition, and used a second time after the student had asked what it meant. T24,
 T26 and T27 are item design (T9, T10, T20): more than one question in an item, a
 question added in a follow-up, a wording that does not say what to write. T25 and
 T28 break the rule of notes_05, section 13: a wrong answer gets a narrowing
-question only, a right answer gets one sentence.
+question only, a right answer gets one sentence. T29 is the same shape as T9 and
+T26: more in one message than the student can act on in one go.
  
 ---
  
@@ -185,3 +188,6 @@ Recording discipline: all nine steps were recorded after the student's yes, and 
 files were re-checked at his request. Three repository items were left to the end of
 the topic by his decision: the rename of five migrations, the four drifts in
 `schema-design.md`, and the two `estimates` rows missing from `seed.sql`.
+At the end of the topic the first two were done by the student; the `seed.sql` with
+the two rows was prepared by the tutor, and its replacement in the repository is not
+confirmed.
