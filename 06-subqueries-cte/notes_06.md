@@ -161,18 +161,225 @@ ORDER BY di.id;
   `delivery_items` the same text would run.
 ---
  
-## 4. Practice
+## 4. Step 2: IN and NOT IN with a subquery
  
-- Two tasks so far, 11 items. No query was written by the student: in both tasks the
-  query was given and the student predicted what it returns.
-- Predictions checked from the other side: task 1, item 4 (5 rows in the result plus
-  6 rows left out = 11 rows of `delivery_items`); task 2 by running the query. The
-  changed subquery of 3.3 was not run.
-- PGExercises: no change since topic 5 (`context_06.md`, 7.4). To return to after
-  topic 6.
+Tasks 3, 4, 7 and 8. Sources: Subquery Expressions (9.23 in versions 15 and 16, 9.24
+in version 18; version 17 not seen), subsections IN and NOT IN. The text of the rule
+was seen in versions 16, 15 and 8; the page of version 17 was not opened.
+ 
+**4.1 `IN` and repeated values in the subquery (task 3).**
+ 
+```sql
+SELECT m.id AS id
+FROM materials AS m
+WHERE m.id IN (SELECT ei.material_id FROM estimate_items AS ei)
+ORDER BY m.id;
+```
+ 
+Run on the live database: 10 rows, `materials.id` 1, 2, 3, 4, 5, 6, 8, 9, 10, 11.
+Materials 7 and 12 are not in `estimate_items`.
+ 
+- The subquery returns 12 values with repeats: `estimate_items.material_id` 4 in
+  lines 4 and 5, 11 in lines 6 and 12. `IN` gives one true or false for each row of
+  `materials`, so no row of `materials` is repeated.
+- The same selection with `FROM materials AS m INNER JOIN estimate_items AS ei ON
+  ei.material_id = m.id` gives 12 rows, `m.id` 4 and 11 twice each (run on the live
+  database). By the rule of 7.2.1.1 each row of `materials` stands once for every
+  matching row of `estimate_items` (rules_05, 5.1).
+- Check: 10 rows of `IN` + 2 repeated rows (`m.id` 4 and 11) = 12 rows of the join.
+**4.2 The rule of `NOT IN` (tasks 4, 7, 8).** `x NOT IN (subquery)`: the subquery
+returns one column, `x` is compared with each value. A subquery row is equal to `x`
+when both values are not NULL and match. Result:
+ 
+| What is found among the values of the subquery | Result of `NOT IN` |
+|---|---|
+| a value equal to `x` | false, even if the subquery also has NULL |
+| no equal value, at least one NULL | NULL |
+| no equal value and no NULL, including an empty subquery | true |
+ 
+- `WHERE` keeps a row only when the result is true (rules_04, 7.2). False and NULL
+  both remove the row.
+- If `x` itself is NULL and the subquery is not empty, no value can be equal, every
+  comparison is NULL, the result is NULL.
+- The wording given in task 4 for the third row of the table, «равных нет, но есть
+  строка с NULL», covered only NULL inside the subquery. It missed the case of NULL
+  on the left, which the student found (T8 in mistakes_06). The documentation, as seen
+  in version 8, says the result is NULL when every per-row result is unequal or null
+  and at least one is null; that covers both.
+**4.3 `NOT IN` over a column with NULL (task 4).**
+ 
+```sql
+SELECT m.id AS id
+FROM materials AS m
+WHERE m.article_no NOT IN (SELECT sm.supplier_article_no
+                           FROM supplier_materials AS sm)
+ORDER BY m.id;
+```
+ 
+`supplier_materials.supplier_article_no` has 13 values: 6 not NULL (CEC-42-25,
+GRAVA-1220, PLB-STD-13, B500S-12, CEM-II-425, PA-BL-15) and 7 NULL.
+`materials.article_no` is NULL for materials 3 and 7. Run on the live database:
+**0 rows.**
+ 
+| `materials.id` | `materials.article_no` | `NOT IN` | reason |
+|---|---|---|---|
+| 1 | CEM-II-425 | false | an equal value is among the 13 |
+| 2 | CEM-I-525 | NULL | no equal value, NULL present |
+| 3 | NULL | NULL | NULL on the left |
+| 4 | PLB-STD-13 | false | an equal value is among the 13 |
+| 5 | REBAR-12 | NULL | no equal value, NULL present |
+| 6 | REBAR-20 | NULL | same |
+| 7 | NULL | NULL | NULL on the left |
+| 8 | GRAV-1220 | NULL | GRAVA-1220 is not equal; NULL present |
+| 9 | INS-XPS-50 | NULL | no equal value, NULL present |
+| 10 | PAINT-W-15 | NULL | PA-BL-15 is not equal; NULL present |
+| 11 | SILIC-CLR | NULL | same |
+| 12 | CEM-II-425-OLD | NULL | CEM-II-425 is not equal; NULL present |
+ 
+No true, so `WHERE` removes all 12 rows. The same subquery under `IN` gives 2 rows,
+`materials.id` 1 and 4 (run on the live database).
+ 
+With `WHERE sm.supplier_article_no IS NOT NULL` inside the subquery the result is 8
+rows: `materials.id` 2, 5, 6, 8, 9, 10, 11, 12 (run on the live database). Rows 1 and 4
+stay false. Rows 3 and 7 stay NULL, because NULL is on the left; they are removed
+too. Check: 8 rows + 4 rows left out (1, 3, 4, 7) = 12 rows of `materials`.
+ 
+Written by the student after two corrections: `SELECT sm.supplier_article_no FROM
+supplier_materials AS sm WHERE sm.supplier_article_no IS NOT NULL`. His first version
+used the table name `supplier_materials` after the alias `sm` was set (rules_04, 9.3)
+and `NOT NULL` instead of `IS NOT NULL`.
+ 
+**4.4 Other examples, run by the tutor on the live database.**
+ 
+| Query | Result | Reason |
+|---|---|---|
+| `m.id NOT IN (SELECT sm.material_id FROM supplier_materials AS sm)` | 2 rows, `materials.id` 9 and 12 | `supplier_materials.material_id` is part of the primary key, no NULL in the subquery |
+| `m.name NOT IN (SELECT ei.description FROM estimate_items AS ei)` | 0 rows | all 12 values of `estimate_items.description` are NULL |
+| `s.tax_id NOT IN (SELECT s2.tax_id FROM suppliers AS s2 WHERE s2.id IN (1, 3))` | 0 rows | the subquery gives B38123456 and NULL (supplier 3 has no tax id) |
+ 
+A small example on made-up values, run on the database: left `l.v` A, B, NULL; right
+`r.v` A, C, NULL. `NOT IN`: false, NULL, NULL. `NOT EXISTS`: false, true, true.
+ 
+**4.5 Simple `NOT IN` without NULL (task 7).**
+ 
+```sql
+SELECT s.id AS id
+FROM sites AS s
+WHERE s.id NOT IN (SELECT di.site_id FROM delivery_items AS di)
+ORDER BY s.id;
+```
+ 
+3 rows: `sites.id` 4, 5, 6 (run on the live database). `delivery_items.site_id` is
+`NOT NULL`, the 11 values (1 six times, 3 three times, 2 twice) hold no NULL and not 4.
+No equal value and no NULL: true.
+ 
+**4.6 `NOT IN`, one NULL in a short subquery (task 8).**
+ 
+```sql
+SELECT s.id AS id
+FROM suppliers AS s
+WHERE s.tax_id NOT IN (SELECT s2.tax_id
+                       FROM suppliers AS s2
+                       WHERE s2.id IN (1, 3))
+ORDER BY s.id;
+```
+ 
+The subquery returns B38123456 (supplier 1) and NULL (supplier 3). `IN (1, 3)` is a
+list of two values, not a range. Result, run on the live database: **0 rows.** Supplier
+1 gives false, every other row gives NULL.
+ 
+With `AND s2.tax_id IS NOT NULL` added to the subquery: 5 rows, `suppliers.id` 2, 4, 5,
+7, 8 (run on the live database). Suppliers 3 and 6 have NULL on the left and stay out,
+supplier 1 is false. Check: 5 + 3 left out (1, 3, 6) = 8 rows of `suppliers`.
+ 
 ---
  
-## 5. Open questions
+## 5. Step 3: EXISTS and NOT EXISTS
+ 
+Tasks 5 and 6.
+ 
+**5.1 `EXISTS` and a subquery that refers to the outer query (task 5).** Sources:
+the subsection EXISTS, versions 16 and 18, and the example in version 8; the page of
+version 17 was not opened. The subquery is evaluated to see whether it returns any
+rows; it can refer to columns of the outer query, which act as constants during one
+evaluation; the contents of its select list are normally unimportant. In
+`SELECT 1` the value 1 is a constant: the subquery gives one row with 1 for each row
+that passes its `WHERE`. The version 8 page says such a query is like an inner join but
+gives at most one row for each row of the outer table.
+ 
+```sql
+SELECT s.id AS id
+FROM suppliers AS s
+WHERE EXISTS (SELECT 1 FROM deliveries AS d WHERE d.supplier_id = s.id)
+ORDER BY s.id;
+```
+ 
+Run on the live database: 7 rows, `suppliers.id` 1, 2, 3, 4, 5, 6, 7. Supplier 8 has no
+delivery. The join `suppliers INNER JOIN deliveries ON
+d.supplier_id = s.id` gives 9 rows, `s.id` 1 and 3 twice each (run).
+ 
+- For `suppliers.id` = 1 the subquery returns 2 rows (`deliveries.id` 1 and 5),
+  `EXISTS` is true, supplier 1 stands in the result once.
+- The student first answered 9 and then «2 раза» for supplier 3: the rows of
+  `deliveries`, not one row per outer row (U4 in mistakes_06).
+- Check: 7 rows + 1 left out (8) = 8 rows of `suppliers`.
+**5.2 `NOT EXISTS` over the data of task 4 (task 6).**
+ 
+```sql
+SELECT m.id AS id
+FROM materials AS m
+WHERE NOT EXISTS (SELECT 1
+                  FROM supplier_materials AS sm
+                  WHERE sm.supplier_article_no = m.article_no)
+ORDER BY m.id;
+```
+ 
+Run on the live database: **10 rows**, `materials.id` 2, 3, 5, 6, 7, 8, 9, 10, 11, 12.
+ 
+- For `materials.id` = 3 (`article_no` NULL) the subquery returns 0 rows:
+  `supplier_article_no = NULL` is NULL, never true. `EXISTS` is false, `NOT EXISTS`
+  is true. `EXISTS` is true or false, never NULL.
+- Rows 1 and 4 have an equal value in the subquery, `EXISTS` is true, `NOT EXISTS`
+  is false. Check: 10 rows + 2 left out (1, 4) = 12 rows of `materials`.
+- The same data under `NOT IN` gives 0 rows (4.3), under `NOT IN` with the NULL
+  filter 8 rows. The two extra rows of `NOT EXISTS`, 3 and 7, are the materials with
+  `article_no` NULL.
+**5.3 `NOT IN` against `NOT EXISTS`.**
+ 
+| | `NOT IN` | `NOT EXISTS` |
+|---|---|---|
+| What the subquery needs | one column | any select list, only the presence of rows matters |
+| Possible results | true, false, NULL | true, false |
+| Empty subquery | true | true |
+| Equal value found | false | false |
+| No equal, NULL in the subquery | NULL, the row is removed | true: `= NULL` is never true, no rows |
+| NULL on the left, subquery not empty | NULL, the row is removed | true |
+| Repeated values in the subquery | the outer rows are not repeated | the outer rows are not repeated |
+| Reference to the outer table | not needed | needed, to tie the subquery to the row |
+ 
+Assessment, not fact: before `NOT IN`, check whether the column of the subquery can
+hold NULL, or use `NOT EXISTS`.
+ 
+---
+ 
+## 6. Practice
+ 
+- Eight tasks so far, 37 items. Two tasks, 7 and 8, were added at the student's
+  request after step 2, so steps 1 to 3 hold eight tasks against six planned.
+- One piece of SQL written by the student: the subquery of 4.3, after two corrections.
+  In the other tasks the query was given and the student predicted the result.
+- Predictions checked from the other side: tasks 3, 4, 5, 6, 8 (the number of rows
+  of the result plus the number of rows left out equals the rows of the table).
+  Tasks 3 to 8 were checked by the tutor on the live database after the student's
+  answers.
+- The student asked for a table comparing `NOT IN` and `NOT EXISTS` (5.3), an example
+  on a few rows (4.4), the rule as a whole without references to earlier wording, and
+  two extra tasks, 7 and 8. He also asked that the tutor spend fewer messages: after
+  two wrong answers in a row the rule is shown instead of a third narrowing question.
+- PGExercises: no change since topic 5 (`context_06.md`, 7.4).
+---
+ 
+## 7. Open questions
  
 1. **No migration history in the remote project** (1.3). Decide how the remote is
    updated before the first `supabase db push`. Carried from topic 5.
@@ -183,20 +390,24 @@ ORDER BY di.id;
 4. **Plan and fact for a site in one result, without multiplying rows.** Step 5.
 5. **`seed.sql` hard-codes surrogate ids.** Step 8. In `INSERT ... SELECT` the natural
    key breaks where it is NULL: `materials.article_no` of materials 3 and 7,
-   `suppliers.tax_id` of suppliers 3 and 6.
+   `suppliers.tax_id` of suppliers 3 and 6. The same NULLs break `NOT IN` (4.3, 4.6).
 6. **Functional dependence in `GROUP BY`** (7.2.3) is not tested. Carried.
 7. **Debts from topic 4, untouched:** no `CHECK` on the dates of `sites`; delivery
    line 7 is dated before the start of its site; no `from_unit_id <>
    materials.unit_id` rule in `material_unit_conversions`.
 8. **Section numbers of the documentation** (2): check each against the page of
-   version 17 before it is cited in a task.
+   version 17 before it is cited in a task. Still open after tasks 1 to 8: every
+   section number in tasks 1 to 8 is unchecked.
 9. **`schema-design.md`, doubled marker** (1.5).
 10. **Window functions** are topic 7. `CASE` and `ROLLUP`: place in the course
     unknown. Exercises of PGExercises Aggregates 11 to 22 are for after topic 6, those
     with window functions after topic 7.
+11. **`ANY` and `ALL`** (step 4) are the general form: `NOT IN` is `<> ALL`, `IN` is
+    `= ANY` in the documentation. Not tested yet; the NULL rule of `NOT IN` should be
+    the same for `<> ALL`.
 ---
  
-## 6. How the tutoring should run
+## 8. How the tutoring should run
  
 Carried from topic 4:
  
