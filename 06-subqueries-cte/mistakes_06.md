@@ -5,25 +5,26 @@ Kept in two parts, because the two move independently:
 - **E — execution.** The mechanism was known; something else reached the answer.
   Includes incomplete answers: a question with several parts answered in part.
 - **U — understanding.** The mechanism itself was wrong.
-A third part, **T**, records the tutor's own errors.
  
 Records were kept during the session and written at the end of each major step.
-This file covers steps 1 to 4 and the first task of step 5, ten tasks (48 items).
+This file covers steps 1 to 5, twelve tasks (60 items).
  
 ---
  
-## E — execution (8)
+## E — execution (10)
  
 | # | What happened | Note |
 |---|---|---|
 | E1 | Task 1, item 2 — why the subquery returns one row and not 11 — the premise was given back: “the subquery outputs only one row and one column” | Closed with two narrowing questions: how many values `avg` gives from the 11 values of `delivery_items.total` (1), how many groups the rows form with no `GROUP BY` (1). Same shape as E20 of topic 5 |
 | E2 | Task 1, item 5 — the number of rows of the changed subquery asked; the value given (“null, I suppose”) | Closed with one repeat of the question: 1. A quantity other than the one asked, as E5, E7 and E11 of topic 5 |
 | E3 | Task 4, item 2 — the subquery written with the table name `supplier_materials` after the alias `sm` was set | The rule is in rules_04, 9.3. The student named `sm` when asked, and then closed the item |
-| E4 | Task 4, item 2 — the test for NOT NULL written as `NOT NULL`, then as `NOT IS NULL` | “I don't remember”. The form `IS NULL` is in rules_04, section 10; the inverse is not written there (T6). Closed after one question: where to put `NOT` inside `IS NULL` → `IS NOT NULL` |
+| E4 | Task 4, item 2 — the test for NOT NULL written as `NOT NULL`, then as `NOT IS NULL` | “I don't remember”. The form `IS NULL` is in rules_04, section 10; the inverse is not written there. Closed after one question: where to put `NOT` inside `IS NULL` → `IS NOT NULL` |
 | E5 | Task 4, item 4 — the ids left out of the result sent as “1,34,7” | A typing slip. Sent again as 1, 3, 4, 7 after the tutor pointed out that 34 is not a `materials.id` |
 | E6 | Task 5, item 1 — the number of rows of the subquery for `suppliers.id` = 1 given as 1 (two: `deliveries.id` 1 and 5) | The ids asked for as a narrowing step came as “2”, then 1, 5. A quantity other than the one asked, as E2 |
 | E7 | Task 6, item 5 — why `NOT IN` gives 0 rows and `NOT EXISTS` gives 10 — “because of NULL and the difference in how the subquery is evaluated” | General words, no values. Closed with the two values for `materials.id` = 5 (NULL and true), and then with a check of the claim “any NULL gives NULL” on row 1 (U6) |
 | E8 | Task 7, item 3 — a reason asked for; the clause “WHERE s.id NOT IN” sent | Closed with one question: the number of NULL among the 11 values of `delivery_items.site_id` (0). The last answer was “true” typed with the Russian keyboard layout active (the letters come out as another word), accepted |
+| E9 | Task 11, item 5 — why site 1 stands in one row with `t` and not in six — the premise was given back: “because delivery_items has 6 rows with delivery_items.site_id = 1” | Closed with one narrowing question: the clause of the subquery that makes the 6 rows one: GROUP BY. Same shape as E1 |
+| E10 | Task 11, item 6 — the check from the other side: the sum of `delivered_total` against the sum of which column of which table — “t.delivered_total” (a column of the result itself), then “delivery_items” (no column) | Closed with two narrowing questions: the table the subquery sums, then the column: `delivery_items.total` |
  
 **Pattern.** E1, E2, E6 and E7 are the failures already in topic 5: the reason
 restated as the premise (E1), a value or a list given instead of the quantity asked
@@ -39,8 +40,8 @@ number of rows of tasks 5 (7), 6 (10) and 8 (0 and 5).
  
 | # | What was wrong | How it was closed |
 |---|---|---|
-| U1 | Task 4, item 1: `NOT IN` over a subquery with NULL — the number of rows given as 9 (right: 0); then false for `materials.id` = 2, then 3 rows, then `materials.id` 5, 8, 10 counted | After a long chain of narrowing questions the student asked to have the rule explained again. The tutor stated the three results of `NOT IN` (equal found, no equal and NULL present, no equal and no NULL); then 0 was answered. Here the tutor stated the rule (T4) |
-| U2 | Task 4: “id 5” given when asked what `materials.article_no` of material 5 is compared with — only with the rows of `supplier_materials` where `supplier_materials.material_id` = 5. “true!!! b500s-12 has id 5” | The query has no condition between `m.id` and `sm.material_id`. Closed with the number of rows of the subquery (13), of NULL among them (7), and the table of the 13 values written by the tutor (T10). The student: “this is some nonsense” (T7) |
+| U1 | Task 4, item 1: `NOT IN` over a subquery with NULL — the number of rows given as 9 (right: 0); then false for `materials.id` = 2, then 3 rows, then `materials.id` 5, 8, 10 counted | After a long chain of narrowing questions the student asked to have the rule explained again. The tutor stated the three results of `NOT IN` (equal found, no equal and NULL present, no equal and no NULL); then 0 was answered. |
+| U2 | Task 4: “id 5” given when asked what `materials.article_no` of material 5 is compared with — only with the rows of `supplier_materials` where `supplier_materials.material_id` = 5. “true!!! b500s-12 has id 5” | The query has no condition between `m.id` and `sm.material_id`. Closed with the number of rows of the subquery (13), of NULL among them (7), and the table of the 13 values written by the tutor. The student: “this is some nonsense” |
 | U3 | Task 4: the case “found only unequal rows” named for `materials.id` 5 and for 8, with 7 NULL values among the 13 | Closed with: how many of the 13 are unequal to GRAV-1220 (6), and the 7 others are NULL → the case “no equal, NULL present”. The student had said “no” to “all 13 are unequal” just before |
 | U4 | Task 5, item 3: the number of rows of `EXISTS` given as 9 and then “twice” for supplier 3 — the number of rows of `deliveries`, not one result row per row of `suppliers`. Later the student read the 2 rows of the subquery for supplier 1 as a contradiction with the 7 of the result | The tutor quoted the documentation (version 8): at most one output row for each row of the outer table. Then 7 was answered, and the check, supplier 8 left out |
 | U5 | Task 6, item 2: `NOT EXISTS` for `materials.id` = 3 given as NULL | `EXISTS` over no rows is false, one question; `NOT` of false is true. The documentation says every form in that section gives true or false |
@@ -63,13 +64,13 @@ and 10 (items 1 to 4) were otherwise right on the first send, and the `GROUP BY`
  
 ---
  
-## T — tutor (12)
+## T — tutor (14)
  
 | # | What was wrong |
 |---|---|
-| T1 | Section numbers of the documentation stated without a check against version 17: 4.2.11, 7.2.1.3, 7.2.1.5, 7.8.3, 7.8.4 from memory; 9.24 inferred from versions 15, 16 and 18. The pages of version 17 could not be fetched. Disclosed in the plan and in the text of the tasks; the anchor of the link in task 1 (`SQL-SCALAR-SUBQUERIES`) was not confirmed, a quotation seen in a mailing-list message gives `SQL-SYNTAX-SCALAR-SUBQUERIES`. The same for the sections of tasks 3 to 8: version 16 numbers given, 17 not seen |
+| T1 | Section numbers of the documentation stated without a check against version 17: 4.2.11, 7.2.1.3, 7.2.1.5, 7.8.3, 7.8.4 from memory; 9.24 inferred from versions 15, 16 and 18. The pages of version 17 could not be fetched. Disclosed in the plan and in the text of the tasks; the anchor of the link in task 1 (`SQL-SCALAR-SUBQUERIES`) was not confirmed, a quotation seen in a mailing-list message gives `SQL-SYNTAX-SCALAR-SUBQUERIES`. The same for the sections of tasks 3 to 12: version 16 numbers given, 17 not seen |
 | T2 | First message of the chat: question 3, whether the `seed.sql` in the repository has the two rows of `estimates`, was asked, although `context_06.md`, section 1, says the student attaches the file from the repository and the attached file had the rows. After “look at the screenshot” the tutor asked for another screenshot; the student had to say that the file sent was the repository one. Three messages |
-| T3 | `notes_06.md`, first version of the section on how the tutoring should run (section 6 then, section 8 now): the rules of `notes_05.md`, section 13, were cut down to a shorter list instead of carried over whole. Left out: the `AS` label on every aggregate, the student answers in his own words, the data repeated on request, an item asks only what the task text says, seed formatting is the tutor's job, tasks name the file, table and line. The student asked whether the files match the structure of topic 5; the section was then rewritten in full |
+| T3 | `notes_06.md`, first version of the section on how the tutoring should run (section 6 then, section 10 now): the rules of `notes_05.md`, section 13, were cut down to a shorter list instead of carried over whole. Left out: the `AS` label on every aggregate, the student answers in his own words, the data repeated on request, an item asks only what the task text says, seed formatting is the tutor's job, tasks name the file, table and line. The student asked whether the files match the structure of topic 5; the section was then rewritten in full |
 | T4 | Task 4, “Short, by the text of the documentation”: only the condition of true (only unequal rows found) was given, with no definition of “unequal rows” and without the results false and NULL. The student could not apply it (“what does unequal rows of the subquery mean???”); the three results were stated only after a long chain of narrowing questions and his request. Same failure as T22 and T23 of topic 5 |
 | T5 | Task 4, item 2 and its follow-up held two questions: the name allowed in the subquery and a reason from rules_04. Only the first was answered. Same shape as T9, T20 and T26 of topic 5 |
 | T6 | Task 4, wrong-answer questions: “what is the `article_no` of material 5 compared with — only the rows with `material_id` = 5, or all 13” was leading and gave the wrong half a place to be chosen; the question about the inverse of `IS NULL` “by analogy” asked for a form that is not in rules_04 (“that is all that is written”) |
@@ -79,6 +80,8 @@ and 10 (items 1 to 4) were otherwise right on the first send, and the `GROUP BY`
 | T10 | Task 6, check of the claim “any NULL gives NULL” on `materials.id` = 1: the question gave no data, the student: “I don't have the tables in front of me”. The rule that data is repeated on request was kept, but the data belonged in the question |
 | T11 | Task 10, “Short, by the text of the documentation”: the statement that the alias of a subquery in `FROM` is optional from version 16 comes from descriptions of changes in search results, not from the page of version 17. Said in the task as “by the description of the changes”, the page was not opened |
 | T12 | Task 9, “Short, by the text of the documentation”: the results of `ANY` and `ALL` given without the NULL row (no true and a NULL gives NULL for `ANY`; no false and a NULL gives NULL for `ALL`). The documentation of version 8 has it; the same kind of cut as T4. Found while writing the notes; the NULL rows were run on constant values afterwards |
+| T13 | Task 12, item 3: “how many rows does the whole query return” could be read as the query of the task, a subquery, or the outer `SELECT` alone. The student answered with a pasted block, one `LEFT OUTER JOIN` with `p`, and “this one?”; the tutor guessed his meaning and asked a narrowing question about `sites`; the student then asked which query was meant and asked that an answer to another reading not be written as his error. Rewritten as “the query given in the task as a whole, from `SELECT s.id AS id` to `ORDER BY s.id;`”. Recorded here, not in E. Same failure as T3, T7, T11, T12 and T18 of topic 5 |
+| T14 | Task 11, item 6: “the sum of `delivered_total` over the 6 rows must match the sum of which column of which table” did not say which tables count. The student: “do we consider only the tables of this task, or all tables and all previous tasks?”. Answered: only the tables of the task |
  
 **Pattern.** T1 is the kind already recorded as T17 and T19 of topic 5: a source
 named with more certainty than was checked, disclosed in the text. T2 is a question
@@ -90,7 +93,9 @@ or could not use: a rule without its definition and without the other two result
 are the cost of the narrowing rule: a leading question, and a chain too long on one
 point. T8 is an inconsistency between the rule as worded and an answer the tutor
 accepted. T11 and T12 are of the T1 and T4 kind: a source not read to the end, and a
-rule cut short in the summary.
+rule cut short in the summary. T13 and T14 are the old failure of a phrase or a scope
+that can be read two ways (“the whole query”, which tables); the student pointed out
+both, and in T13 asked that the ambiguity be counted against the tutor.
  
 ---
  
