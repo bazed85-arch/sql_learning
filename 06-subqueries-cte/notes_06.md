@@ -548,17 +548,103 @@ Run on the live database: 6 rows.
   sums as in topic 5.
 ---
  
-## 8. Practice
+## 8. Step 6: WITH, several CTEs in a row
  
-- Twelve tasks so far, 60 items. Two tasks, 7 and 8, were added at the student's
+Documentation: PostgreSQL 17, 7.8, WITH Queries (Common Table Expressions),
+https://www.postgresql.org/docs/17/queries-with.html. Page and number not opened,
+see section 2. A CTE (common table expression) is a named query written before the
+main `SELECT` as `WITH name AS (SELECT ...)`; it exists for one statement and the main
+query reads it as a table. Several CTEs go in one `WITH`, separated by commas.
+ 
+### 8.1 Task 13: the query of task 12 written with WITH
+ 
+Query given:
+ 
+```sql
+WITH p AS (
+    SELECT e.site_id AS site_id,
+           sum(ei.total) AS planned_total
+    FROM estimates AS e
+    INNER JOIN estimate_items AS ei ON ei.estimate_id = e.id
+    WHERE e.status = 'approved'
+    GROUP BY e.site_id
+),
+f AS (
+    SELECT di.site_id AS site_id,
+           sum(di.total) AS delivered_total
+    FROM delivery_items AS di
+    GROUP BY di.site_id
+)
+SELECT s.id AS id,
+       p.planned_total AS planned_total,
+       f.delivered_total AS delivered_total
+FROM sites AS s
+LEFT OUTER JOIN p ON p.site_id = s.id
+LEFT OUTER JOIN f ON f.site_id = s.id
+ORDER BY s.id;
+```
+ 
+Same result as 7.3. Items, all five right on the first send:
+ 
+1. Rows of `p` alone: 3 (sites 1, 2, 3).
+2. The rows summed into `p.planned_total` of site 1: `estimate_items.id` 1, 2, 3, 4,
+   all of estimate 1. Estimate 7 is approved but has no lines. The student named the
+   line ids, not the estimate ids that were asked (E11).
+3. `planned_total` in the row `s.id` = 4: NULL. Estimate 4 is rejected, so `p` has no
+   row for site 4 and the `LEFT OUTER JOIN` adds NULL.
+4. Swapping the order of `p` and `f` in the `WITH` changes nothing: no. They do not
+   refer to each other.
+5. `INNER JOIN p` instead of `LEFT OUTER JOIN p`: the row `s.id` = 4 is gone, no.
+### 8.2 Task 14: a CTE that reads an earlier CTE
+ 
+Query given:
+ 
+```sql
+WITH approved AS (
+    SELECT e.id AS id,
+           e.site_id AS site_id
+    FROM estimates AS e
+    WHERE e.status = 'approved'
+),
+lines AS (
+    SELECT a.site_id AS site_id,
+           ei.total AS total
+    FROM approved AS a
+    INNER JOIN estimate_items AS ei ON ei.estimate_id = a.id
+)
+SELECT l.site_id AS site_id,
+       sum(l.total) AS planned_total
+FROM lines AS l
+GROUP BY l.site_id
+ORDER BY l.site_id;
+```
+ 
+Items, all five right on the first send:
+ 
+1. Rows of `approved` alone: 4 (estimates 1, 3, 6, 7).
+2. Rows of `lines` alone: 9 (4 of estimate 1, 3 of estimate 3, 2 of estimate 6, 0 of
+   estimate 7).
+3. Rows of the whole query, from `WITH approved AS` to `ORDER BY l.site_id;`: 3.
+4. `lines` written above `approved`: an error. A CTE reads only the CTEs written above
+   it in the same `WITH`. (Error text not run; stated from the documentation.)
+5. `LEFT OUTER JOIN estimate_items` in `lines`: 10 rows, the 9 plus one for estimate 7
+   with NULL in `ei.total`.
+Checked by the tutor on the live database: estimates and `estimate_items` as in the
+tables of the tasks. Sums by site: 15080.00, 9730.00, 13965.00 (7.3).
+ 
+---
+ 
+## 9. Practice
+ 
+- Fourteen tasks so far, 70 items. Two tasks, 7 and 8, were added at the student's
   request after step 2, so steps 1 to 3 hold eight tasks against six planned; step 4
-  holds one task, step 5 three.
+  holds one task, step 5 three, step 6 two.
 - Two pieces of SQL written by the student: the subquery of 4.3, after two
   corrections, and the `GROUP BY` / `HAVING` query of 7.1, right on the first send. In
   the other tasks the query was given and the student predicted the result.
-- Predictions checked from the other side: tasks 3, 4, 5, 6, 8, 9, 11 (the number of rows
+- Predictions checked from the other side: tasks 3, 4, 5, 6, 8, 9, 11, 13, 14 (the number of rows
   of the result plus the number of rows left out equals the rows of the table).
-  Tasks 3 to 12 were checked by the tutor on the live database after the student's
+  Tasks 3 to 14 were checked by the tutor on the live database after the student's
   answers.
 - The student asked for a table comparing `NOT IN` and `NOT EXISTS` (5.3), an example
   on a few rows (4.4), the rule as a whole without references to earlier wording, and
@@ -567,7 +653,7 @@ Run on the live database: 6 rows.
 - PGExercises: no change since topic 5 (`context_06.md`, 7.4).
 ---
  
-## 9. Open questions
+## 10. Open questions
  
 1. **No migration history in the remote project** (1.3). Decide how the remote is
    updated before the first `supabase db push`. Carried from topic 5.
@@ -585,8 +671,8 @@ Run on the live database: 6 rows.
    line 7 is dated before the start of its site; no `from_unit_id <>
    materials.unit_id` rule in `material_unit_conversions`.
 8. **Section numbers of the documentation** (2): check each against the page of
-   version 17 before it is cited in a task. Still open after tasks 1 to 12: every
-   section number in tasks 1 to 12 is unchecked.
+   version 17 before it is cited in a task. Still open after tasks 1 to 14: every
+   section number in tasks 1 to 14 is unchecked.
 9. **`schema-design.md`, doubled marker** (1.5).
 10. **Window functions** are topic 7. `CASE` and `ROLLUP`: place in the course
     unknown. Exercises of PGExercises Aggregates 11 to 22 are for after topic 6, those
@@ -597,7 +683,7 @@ Run on the live database: 6 rows.
     descriptions of the changes; check the page of version 17 (7.2.1.3).
 ---
  
-## 10. How the tutoring should run
+## 11. How the tutoring should run
  
 Carried from topic 4:
  
