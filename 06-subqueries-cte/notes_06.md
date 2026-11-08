@@ -201,11 +201,9 @@ when both values are not NULL and match. Result:
   both remove the row.
 - If `x` itself is NULL and the subquery is not empty, no value can be equal, every
   comparison is NULL, the result is NULL.
-- The wording given in task 4 for the third row of the table, “no equal value, but a row
-  with NULL is present”, covered only NULL inside the subquery. It missed the case of NULL
-  on the left, which the student found (T8 in mistakes_06). The documentation, as seen
-  in version 8, says the result is NULL when every per-row result is unequal or null
-  and at least one is null; that covers both.
+- The third row of the table covers two situations: NULL inside the subquery, and NULL
+  on the left. The documentation, as seen in version 8, says the result is NULL when
+  every per-row result is unequal or null and at least one is null; that covers both.
 **4.3 `NOT IN` over a column with NULL (task 4).**
  
 ```sql
@@ -378,9 +376,8 @@ left with each value of the subquery.
 | NULL | no true, and at least one comparison is NULL | no false, and at least one comparison is NULL |
  
 - The documentation says `IN` is equal to `= ANY` and `NOT IN` is equal to `<> ALL`.
-- The summary given in task 9 said "false when no true" and "true when all true" and
-  left out the NULL row of the table; the documentation of version 8 has it (T12 in
-  mistakes_06). Run on the database by the tutor: `5 > ANY (VALUES (9), (NULL))` is
+- The NULL row of the table is in the documentation of version 8. Run on the database
+  by the tutor: `5 > ANY (VALUES (9), (NULL))` is
   NULL, `5 > ANY (VALUES (3), (NULL))` is true, `5 > ALL (VALUES (1), (NULL))` is NULL,
   `5 > ALL (VALUES (9), (NULL))` is false.
 **6.2 `> ALL` and `> ANY` over a short subquery (task 9).**
@@ -418,8 +415,8 @@ live database:
  
 ## 7. Step 5: subquery in FROM
  
-Task 10 of three planned (the plan: derived table with an aggregate, a join with it,
-plan and fact for a site in one result). Source: Subqueries (7.2.1.3, number not
+Tasks 10, 11 and 12 (the plan: derived table with an aggregate, a join with it, plan
+and fact for a site in one result). Source: Subqueries (7.2.1.3, number not
 checked), seen in older versions and in descriptions of the changes; the page of
 version 17 was not opened.
  
@@ -461,19 +458,107 @@ ORDER BY site_id;
  
 - `ORDER BY site_id` (a label) and `ORDER BY di.site_id` both run and give the same
   rows, the second because `di.site_id` is in `GROUP BY` (rules_05, 2.3 and 3.5).
+**7.2 A join with a derived table (task 11).**
+ 
+```sql
+SELECT s.id AS id,
+       s.code AS code,
+       t.delivered_total AS delivered_total
+FROM sites AS s
+LEFT OUTER JOIN (SELECT di.site_id AS site_id,
+                        sum(di.total) AS delivered_total
+                 FROM delivery_items AS di
+                 GROUP BY di.site_id) AS t
+             ON t.site_id = s.id
+ORDER BY s.id;
+```
+ 
+Run on the live database: 6 rows, one per row of `sites`.
+ 
+| `sites.id` | `sites.code` | `delivered_total` |
+|---|---|---|
+| 1 | TF-001 | 14404.50 |
+| 2 | TF-002 | 481.50 |
+| 3 | TF-003 | 3504.00 |
+| 4 | TF-004 | NULL |
+| 5 | TF-005 | NULL |
+| 6 | TF-006 | NULL |
+ 
+- Sites 4, 5 and 6 have no row in `t`: `t` holds only the values of
+  `delivery_items.site_id` that exist. `LEFT OUTER JOIN` adds one row with NULL in
+  every column of `t` for each of them (rules_04, 4.1). The student's wording: the
+  join gives NULL to the joined table when there is no data for the row.
+- `t` has at most one row per `site_id`, because of `GROUP BY`. For `sites.id` = 1
+  one row of `t` meets the condition `ON t.site_id = s.id`, so site 1 stands in one
+  row. Joining `delivery_items` directly would give 6 rows for site 1 (rules_05, 5.1).
+  The student named the clause `GROUP BY` as the part of the subquery that makes six
+  rows into one.
+- Check from the other side: the sum of `delivered_total` over the 6 rows is 14404.50
+  + 481.50 + 3504.00 = 18390.00, the sum of `delivery_items.total` over the 11 rows
+  of `delivery_items`.
+**7.3 Plan and fact for a site in one result (task 12).**
+ 
+```sql
+SELECT s.id AS id,
+       p.planned_total AS planned_total,
+       f.delivered_total AS delivered_total
+FROM sites AS s
+LEFT OUTER JOIN (SELECT e.site_id AS site_id,
+                        sum(ei.total) AS planned_total
+                 FROM estimates AS e
+                 INNER JOIN estimate_items AS ei ON ei.estimate_id = e.id
+                 WHERE e.status = 'approved'
+                 GROUP BY e.site_id) AS p
+             ON p.site_id = s.id
+LEFT OUTER JOIN (SELECT di.site_id AS site_id,
+                        sum(di.total) AS delivered_total
+                 FROM delivery_items AS di
+                 GROUP BY di.site_id) AS f
+             ON f.site_id = s.id
+ORDER BY s.id;
+```
+ 
+Run on the live database: 6 rows.
+ 
+| `sites.id` | `planned_total` | `delivered_total` |
+|---|---|---|
+| 1 | 15080.00 | 14404.50 |
+| 2 | 9730.00 | 481.50 |
+| 3 | 13965.00 | 3504.00 |
+| 4 | NULL | NULL |
+| 5 | NULL | NULL |
+| 6 | NULL | NULL |
+ 
+- `p` has 3 rows, one per site that has an approved estimate with lines. The approved
+  estimates are `estimates.id` 1, 3, 6 and 7. Estimate 7 has no row in
+  `estimate_items`, so the `INNER JOIN` forms no pair for it and it adds nothing to
+  the sum of site 1: 15080.00 is the four lines of estimate 1. `p.planned_total` is
+  15080.00 for site 1, 9730.00 for site 2 (estimate 6), 13965.00 for site 3
+  (estimate 3).
+- `f` is the table of 7.2.
+- The query returns 6 rows, one per row of `sites`. After both `LEFT OUTER JOIN`s site 1
+  stands in 1 row: `p` has 1 row with `p.site_id` = 1 and `f` has 1 row with
+  `f.site_id` = 1, 1 × 1 = 1. The student named `GROUP BY` as the reason why it is 1
+  and not 30: in each subquery it makes one row per site.
+- This is the query that open question 4 asked for. Without the subqueries, the join of
+  `sites` to `estimates`, `estimate_items` and `delivery_items` gave 5 × 6 = 30 rows for
+  site 1 (`notes_05.md`, 10.3). The values of the table of `notes_05.md`, 10.2, put
+  together by hand from two queries, are the values of this one query. Check:
+  planned 15080.00 + 9730.00 + 13965.00 = 38775.00, delivered 18390.00, the same
+  sums as in topic 5.
 ---
  
 ## 8. Practice
  
-- Ten tasks so far, 48 items. Two tasks, 7 and 8, were added at the student's
+- Twelve tasks so far, 60 items. Two tasks, 7 and 8, were added at the student's
   request after step 2, so steps 1 to 3 hold eight tasks against six planned; step 4
-  holds one task, step 5 one of three planned.
+  holds one task, step 5 three.
 - Two pieces of SQL written by the student: the subquery of 4.3, after two
   corrections, and the `GROUP BY` / `HAVING` query of 7.1, right on the first send. In
   the other tasks the query was given and the student predicted the result.
-- Predictions checked from the other side: tasks 3, 4, 5, 6, 8, 9 (the number of rows
+- Predictions checked from the other side: tasks 3, 4, 5, 6, 8, 9, 11 (the number of rows
   of the result plus the number of rows left out equals the rows of the table).
-  Tasks 3 to 10 were checked by the tutor on the live database after the student's
+  Tasks 3 to 12 were checked by the tutor on the live database after the student's
   answers.
 - The student asked for a table comparing `NOT IN` and `NOT EXISTS` (5.3), an example
   on a few rows (4.4), the rule as a whole without references to earlier wording, and
@@ -490,7 +575,8 @@ ORDER BY site_id;
    step 7 of this topic rewrites them with a subquery and a CTE. The choice is the
    student's.
 3. **Plan against catalogue price** needs the unit conversion tables. Carried.
-4. **Plan and fact for a site in one result, without multiplying rows.** Step 5.
+4. **Plan and fact for a site in one result, without multiplying rows.** Closed in
+   task 12 (7.3).
 5. **`seed.sql` hard-codes surrogate ids.** Step 8. In `INSERT ... SELECT` the natural
    key breaks where it is NULL: `materials.article_no` of materials 3 and 7,
    `suppliers.tax_id` of suppliers 3 and 6. The same NULLs break `NOT IN` (4.3, 4.6).
@@ -499,8 +585,8 @@ ORDER BY site_id;
    line 7 is dated before the start of its site; no `from_unit_id <>
    materials.unit_id` rule in `material_unit_conversions`.
 8. **Section numbers of the documentation** (2): check each against the page of
-   version 17 before it is cited in a task. Still open after tasks 1 to 10: every
-   section number in tasks 1 to 10 is unchecked.
+   version 17 before it is cited in a task. Still open after tasks 1 to 12: every
+   section number in tasks 1 to 12 is unchecked.
 9. **`schema-design.md`, doubled marker** (1.5).
 10. **Window functions** are topic 7. `CASE` and `ROLLUP`: place in the course
     unknown. Exercises of PGExercises Aggregates 11 to 22 are for after topic 6, those
@@ -571,6 +657,8 @@ Added in topic 5:
   into how many summands, or the row count of which table the number must match.
   Without it the student cannot tell what to write.
 - One item holds one question. A number and a reason, two factors, or values and a
-  comparison are separate items. Recorded from the log (T9, T20, T26 of topic 5),
-  not from the student's words.
+  comparison are separate items. Recorded from the log of topic 5, not from the
+  student's words.
 Added in this topic: nothing so far.
+- Errors of the tutor are not written in the repository files (the student's
+  instruction, 2026-11-08). `mistakes_06.md` keeps the parts E and U only.
