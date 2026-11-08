@@ -7,11 +7,11 @@ Kept in two parts, because the two move independently:
 - **U — understanding.** The mechanism itself was wrong.
  
 Records were kept during the session and written at the end of each major step.
-This file covers steps 1 to 5, twelve tasks (60 items).
+This file covers steps 1 to 6, fourteen tasks (70 items).
  
 ---
  
-## E — execution (10)
+## E — execution (11)
  
 | # | What happened | Note |
 |---|---|---|
@@ -25,6 +25,8 @@ This file covers steps 1 to 5, twelve tasks (60 items).
 | E8 | Task 7, item 3 — a reason asked for; the clause “WHERE s.id NOT IN” sent | Closed with one question: the number of NULL among the 11 values of `delivery_items.site_id` (0). The last answer was “true” typed with the Russian keyboard layout active (the letters come out as another word), accepted |
 | E9 | Task 11, item 5 — why site 1 stands in one row with `t` and not in six — the premise was given back: “because delivery_items has 6 rows with delivery_items.site_id = 1” | Closed with one narrowing question: the clause of the subquery that makes the 6 rows one: GROUP BY. Same shape as E1 |
 | E10 | Task 11, item 6 — the check from the other side: the sum of `delivered_total` against the sum of which column of which table — “t.delivered_total” (a column of the result itself), then “delivery_items” (no column) | Closed with two narrowing questions: the table the subquery sums, then the column: `delivery_items.total` |
+ 
+| E11 | Task 13, item 2 — the question asked for the estimates (`estimates.id`) whose lines make `p.planned_total` of site 1; the answer was the line ids “1,2,3,4” | Accepted: the lines identify estimate 1. The key asked for was `estimates.id`; a different key from the one asked, as E5 and E6 |
  
 **Pattern.** E1, E2, E6 and E7 are the failures already in topic 5: the reason
 restated as the premise (E1), a value or a list given instead of the quantity asked
@@ -64,13 +66,13 @@ and 10 (items 1 to 4) were otherwise right on the first send, and the `GROUP BY`
  
 ---
  
-## T — tutor (14)
+## T — tutor (16)
  
 | # | What was wrong |
 |---|---|
 | T1 | Section numbers of the documentation stated without a check against version 17: 4.2.11, 7.2.1.3, 7.2.1.5, 7.8.3, 7.8.4 from memory; 9.24 inferred from versions 15, 16 and 18. The pages of version 17 could not be fetched. Disclosed in the plan and in the text of the tasks; the anchor of the link in task 1 (`SQL-SCALAR-SUBQUERIES`) was not confirmed, a quotation seen in a mailing-list message gives `SQL-SYNTAX-SCALAR-SUBQUERIES`. The same for the sections of tasks 3 to 12: version 16 numbers given, 17 not seen |
 | T2 | First message of the chat: question 3, whether the `seed.sql` in the repository has the two rows of `estimates`, was asked, although `context_06.md`, section 1, says the student attaches the file from the repository and the attached file had the rows. After “look at the screenshot” the tutor asked for another screenshot; the student had to say that the file sent was the repository one. Three messages |
-| T3 | `notes_06.md`, first version of the section on how the tutoring should run (section 6 then, section 10 now): the rules of `notes_05.md`, section 13, were cut down to a shorter list instead of carried over whole. Left out: the `AS` label on every aggregate, the student answers in his own words, the data repeated on request, an item asks only what the task text says, seed formatting is the tutor's job, tasks name the file, table and line. The student asked whether the files match the structure of topic 5; the section was then rewritten in full |
+| T3 | `notes_06.md`, first version of the section on how the tutoring should run (section 6 then, section 11 now): the rules of `notes_05.md`, section 13, were cut down to a shorter list instead of carried over whole. Left out: the `AS` label on every aggregate, the student answers in his own words, the data repeated on request, an item asks only what the task text says, seed formatting is the tutor's job, tasks name the file, table and line. The student asked whether the files match the structure of topic 5; the section was then rewritten in full |
 | T4 | Task 4, “Short, by the text of the documentation”: only the condition of true (only unequal rows found) was given, with no definition of “unequal rows” and without the results false and NULL. The student could not apply it (“what does unequal rows of the subquery mean???”); the three results were stated only after a long chain of narrowing questions and his request. Same failure as T22 and T23 of topic 5 |
 | T5 | Task 4, item 2 and its follow-up held two questions: the name allowed in the subquery and a reason from rules_04. Only the first was answered. Same shape as T9, T20 and T26 of topic 5 |
 | T6 | Task 4, wrong-answer questions: “what is the `article_no` of material 5 compared with — only the rows with `material_id` = 5, or all 13” was leading and gave the wrong half a place to be chosen; the question about the inverse of `IS NULL` “by analogy” asked for a form that is not in rules_04 (“that is all that is written”) |
@@ -82,6 +84,9 @@ and 10 (items 1 to 4) were otherwise right on the first send, and the `GROUP BY`
 | T12 | Task 9, “Short, by the text of the documentation”: the results of `ANY` and `ALL` given without the NULL row (no true and a NULL gives NULL for `ANY`; no false and a NULL gives NULL for `ALL`). The documentation of version 8 has it; the same kind of cut as T4. Found while writing the notes; the NULL rows were run on constant values afterwards |
 | T13 | Task 12, item 3: “how many rows does the whole query return” could be read as the query of the task, a subquery, or the outer `SELECT` alone. The student answered with a pasted block, one `LEFT OUTER JOIN` with `p`, and “this one?”; the tutor guessed his meaning and asked a narrowing question about `sites`; the student then asked which query was meant and asked that an answer to another reading not be written as his error. Rewritten as “the query given in the task as a whole, from `SELECT s.id AS id` to `ORDER BY s.id;`”. Recorded here, not in E. Same failure as T3, T7, T11, T12 and T18 of topic 5 |
 | T14 | Task 11, item 6: “the sum of `delivered_total` over the 6 rows must match the sum of which column of which table” did not say which tables count. The student: “do we consider only the tables of this task, or all tables and all previous tasks?”. Answered: only the tables of the task |
+ 
+| T15 | Task 13: the task text had no documentation link, only the section name and number. The rule (one documentation link plus a summary) was kept in tasks 1 to 12. The student asked for the link in the task text and for the task to be repeated; the link was added and marked unopened |
+| T16 | Task 13, item 2: no data in the message. The question named “the lines of `estimate_items` of which estimates” and the data held only which estimates have lines. The student: “give the table estimate_items”. Same as T10; the table was then sent |
  
 **Pattern.** T1 is the kind already recorded as T17 and T19 of topic 5: a source
 named with more certainty than was checked, disclosed in the text. T2 is a question
@@ -95,7 +100,9 @@ point. T8 is an inconsistency between the rule as worded and an answer the tutor
 accepted. T11 and T12 are of the T1 and T4 kind: a source not read to the end, and a
 rule cut short in the summary. T13 and T14 are the old failure of a phrase or a scope
 that can be read two ways (“the whole query”, which tables); the student pointed out
-both, and in T13 asked that the ambiguity be counted against the tutor.
+both, and in T13 asked that the ambiguity be counted against the tutor. T15 is a rule
+of the file (a link in the task text) dropped; T16 repeats T10, data not in the
+question, and the student again had to ask for it.
  
 ---
  
