@@ -201,8 +201,8 @@ when both values are not NULL and match. Result:
   both remove the row.
 - If `x` itself is NULL and the subquery is not empty, no value can be equal, every
   comparison is NULL, the result is NULL.
-- The wording given in task 4 for the third row of the table, «равных нет, но есть
-  строка с NULL», covered only NULL inside the subquery. It missed the case of NULL
+- The wording given in task 4 for the third row of the table, “no equal value, but a row
+  with NULL is present”, covered only NULL inside the subquery. It missed the case of NULL
   on the left, which the student found (T8 in mistakes_06). The documentation, as seen
   in version 8, says the result is NULL when every per-row result is unequal or null
   and at least one is null; that covers both.
@@ -320,7 +320,7 @@ d.supplier_id = s.id` gives 9 rows, `s.id` 1 and 3 twice each (run).
  
 - For `suppliers.id` = 1 the subquery returns 2 rows (`deliveries.id` 1 and 5),
   `EXISTS` is true, supplier 1 stands in the result once.
-- The student first answered 9 and then «2 раза» for supplier 3: the rows of
+- The student first answered 9 and then “twice” for supplier 3: the rows of
   `deliveries`, not one row per outer row (U4 in mistakes_06).
 - Check: 7 rows + 1 left out (8) = 8 rows of `suppliers`.
 **5.2 `NOT EXISTS` over the data of task 4 (task 6).**
@@ -362,15 +362,118 @@ hold NULL, or use `NOT EXISTS`.
  
 ---
  
-## 6. Practice
+## 6. Step 4: ANY and ALL
  
-- Eight tasks so far, 37 items. Two tasks, 7 and 8, were added at the student's
-  request after step 2, so steps 1 to 3 hold eight tasks against six planned.
-- One piece of SQL written by the student: the subquery of 4.3, after two corrections.
-  In the other tasks the query was given and the student predicted the result.
-- Predictions checked from the other side: tasks 3, 4, 5, 6, 8 (the number of rows
+Task 9. Source: subsections ANY/SOME and ALL of Subquery Expressions (9.23.4 and
+9.23.5 in version 16; version 17 not seen). The text was read in versions 15, 16 and 8.
+ 
+**6.1 The rule.** `expression operator ANY (subquery)` and `expression operator ALL
+(subquery)`: the subquery returns one column, the operator compares the value on the
+left with each value of the subquery.
+ 
+| | `ANY` | `ALL` |
+|---|---|---|
+| true | at least one comparison is true | every comparison is true, an empty subquery too |
+| false | no comparison is true, an empty subquery too | at least one comparison is false |
+| NULL | no true, and at least one comparison is NULL | no false, and at least one comparison is NULL |
+ 
+- The documentation says `IN` is equal to `= ANY` and `NOT IN` is equal to `<> ALL`.
+- The summary given in task 9 said "false when no true" and "true when all true" and
+  left out the NULL row of the table; the documentation of version 8 has it (T12 in
+  mistakes_06). Run on the database by the tutor: `5 > ANY (VALUES (9), (NULL))` is
+  NULL, `5 > ANY (VALUES (3), (NULL))` is true, `5 > ALL (VALUES (1), (NULL))` is NULL,
+  `5 > ALL (VALUES (9), (NULL))` is false.
+**6.2 `> ALL` and `> ANY` over a short subquery (task 9).**
+ 
+```sql
+SELECT di.id AS id
+FROM delivery_items AS di
+WHERE di.total > ALL (SELECT di2.total
+                      FROM delivery_items AS di2
+                      WHERE di2.site_id = 2)
+ORDER BY di.id;
+```
+ 
+The subquery returns 184.50 and 297.00 (`delivery_items.id` 10 and 11). Run on the
+live database:
+ 
+| Operator | Rows | `delivery_items.id` in the result | Left out |
+|---|---|---|---|
+| `> ALL` | 7 | 1, 3, 4, 5, 6, 7, 8 | 2, 9, 10, 11 |
+| `> ANY` | 9 | 1, 3, 4, 5, 6, 7, 8, 9, 11 | 2, 10 |
+ 
+- `> ALL` needs the value above both 184.50 and 297.00, so above 297.00. `> ANY`
+  needs it above 184.50 only. Row 11 (297.00) is not above 297.00, so `ALL` drops it
+  and `ANY` keeps it (297.00 is above 184.50).
+- Checks: 7 + 4 = 11 and 9 + 2 = 11, the rows of `delivery_items`.
+- The condition `di2.site_id = 2` belongs to the subquery and filters `di2` only. The
+  outer query reads all 11 rows of `di`, rows 10 and 11 included. The student first
+  answered 8 for `ANY` because rows 10 and 11 stand in the `WHERE` of the subquery
+  (U9 in mistakes_06).
+- The student's wording, accepted after one correction: for a subquery that does not
+  refer to the outer query, the value of the outer row is compared with each value
+  of the subquery; `ALL` needs true for all, `ANY` for at least one. For a subquery
+  that refers to the outer table the values differ from row to row (task 5).
+---
+ 
+## 7. Step 5: subquery in FROM
+ 
+Task 10 of three planned (the plan: derived table with an aggregate, a join with it,
+plan and fact for a site in one result). Source: Subqueries (7.2.1.3, number not
+checked), seen in older versions and in descriptions of the changes; the page of
+version 17 was not opened.
+ 
+**7.1 A derived table with an aggregate (task 10).**
+ 
+```sql
+SELECT t.site_id AS site_id,
+       t.delivered_total AS delivered_total
+FROM (SELECT di.site_id AS site_id,
+             sum(di.total) AS delivered_total
+      FROM delivery_items AS di
+      GROUP BY di.site_id) AS t
+WHERE t.delivered_total > 1000
+ORDER BY t.site_id;
+```
+ 
+- A subquery in `FROM` stands in parentheses; its result is a derived table, and the
+  outer query reads its rows like those of a table. Older versions required an alias
+  for it; by the descriptions of the changes, version 16 made it optional. The alias
+  was written (`AS t`). Not confirmed on the page of version 17 (open question 12).
+- `t` has 3 rows, one per different `delivery_items.site_id`: 1 with 14404.50, 2 with
+  481.50, 3 with 3504.00 (sums computed by the tutor; their total is 18390.00). The
+  outer `WHERE t.delivered_total > 1000` leaves sites 1 and 3. Run on the live
+  database: `site_id` 1 and 3, `delivered_total` 14404.50 and 3504.00.
+- Why `t.delivered_total` is allowed in `WHERE`: the name is declared in the subquery
+  and is a column of `t` for the outer query, not a label of the outer `SELECT`. In
+  topic 5, task 17, `HAVING estimate_total > 10000` failed with `42703` because the
+  label stood in the select list of the same `SELECT` (rules_05, 3.5). The student
+  named the subquery as the place of the declaration.
+- The student wrote the same result without a subquery in `FROM` (first send, run on
+  the live database, the same two rows):
+```sql
+SELECT di.site_id AS site_id, sum(di.total) AS delivered_total
+FROM delivery_items AS di
+GROUP BY di.site_id
+HAVING sum(di.total) > 1000
+ORDER BY site_id;
+```
+ 
+- `ORDER BY site_id` (a label) and `ORDER BY di.site_id` both run and give the same
+  rows, the second because `di.site_id` is in `GROUP BY` (rules_05, 2.3 and 3.5).
+---
+ 
+## 8. Practice
+ 
+- Ten tasks so far, 48 items. Two tasks, 7 and 8, were added at the student's
+  request after step 2, so steps 1 to 3 hold eight tasks against six planned; step 4
+  holds one task, step 5 one of three planned.
+- Two pieces of SQL written by the student: the subquery of 4.3, after two
+  corrections, and the `GROUP BY` / `HAVING` query of 7.1, right on the first send. In
+  the other tasks the query was given and the student predicted the result.
+- Predictions checked from the other side: tasks 3, 4, 5, 6, 8, 9 (the number of rows
   of the result plus the number of rows left out equals the rows of the table).
-  Tasks 3 to 8 were checked by the tutor on the live database after the student's
+  Tasks 3 to 10 were checked by the tutor on the live database after the student's
   answers.
 - The student asked for a table comparing `NOT IN` and `NOT EXISTS` (5.3), an example
   on a few rows (4.4), the rule as a whole without references to earlier wording, and
@@ -379,7 +482,7 @@ hold NULL, or use `NOT EXISTS`.
 - PGExercises: no change since topic 5 (`context_06.md`, 7.4).
 ---
  
-## 7. Open questions
+## 9. Open questions
  
 1. **No migration history in the remote project** (1.3). Decide how the remote is
    updated before the first `supabase db push`. Carried from topic 5.
@@ -396,18 +499,19 @@ hold NULL, or use `NOT EXISTS`.
    line 7 is dated before the start of its site; no `from_unit_id <>
    materials.unit_id` rule in `material_unit_conversions`.
 8. **Section numbers of the documentation** (2): check each against the page of
-   version 17 before it is cited in a task. Still open after tasks 1 to 8: every
-   section number in tasks 1 to 8 is unchecked.
+   version 17 before it is cited in a task. Still open after tasks 1 to 10: every
+   section number in tasks 1 to 10 is unchecked.
 9. **`schema-design.md`, doubled marker** (1.5).
 10. **Window functions** are topic 7. `CASE` and `ROLLUP`: place in the course
     unknown. Exercises of PGExercises Aggregates 11 to 22 are for after topic 6, those
     with window functions after topic 7.
-11. **`ANY` and `ALL`** (step 4) are the general form: `NOT IN` is `<> ALL`, `IN` is
-    `= ANY` in the documentation. Not tested yet; the NULL rule of `NOT IN` should be
-    the same for `<> ALL`.
+11. **`ANY` and `ALL` with NULL** (6.1). The NULL row of the table was run on
+    constant values only, not on a table. Not asked in a task.
+12. **Alias of a subquery in `FROM`** (7.1): optional from version 16 by the
+    descriptions of the changes; check the page of version 17 (7.2.1.3).
 ---
  
-## 8. How the tutoring should run
+## 10. How the tutoring should run
  
 Carried from topic 4:
  
@@ -462,8 +566,8 @@ Added in topic 5:
 - Changes to a file the student edits by hand, and explanations of a list of
   changes, are given one point at a time: where to look, the text now, the text it
   becomes. The next point comes after the student writes that it is done.
-- A phrase that names a kind of answer — "из каких частей складывается число",
-  "проверка с другой стороны" — is defined in the same message: what is counted and
+- A phrase that names a kind of answer — "what the number is made up of",
+  "check from the other side" — is defined in the same message: what is counted and
   into how many summands, or the row count of which table the number must match.
   Without it the student cannot tell what to write.
 - One item holds one question. A number and a reason, two factors, or values and a
