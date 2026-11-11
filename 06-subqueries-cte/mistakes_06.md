@@ -7,7 +7,7 @@ Kept in two parts, because the two move independently:
 - **U — understanding.** The mechanism itself was wrong.
  
 Records were kept during the session and written at the end of each major step.
-This file covers steps 1 to 6, fourteen tasks (70 items).
+This file covers steps 1 to 7, sixteen tasks (80 items).
  
 ---
  
@@ -72,7 +72,7 @@ and 10 (items 1 to 4) were otherwise right on the first send, and the `GROUP BY`
 |---|---|
 | T1 | Section numbers of the documentation stated without a check against version 17: 4.2.11, 7.2.1.3, 7.2.1.5, 7.8.3, 7.8.4 from memory; 9.24 inferred from versions 15, 16 and 18. The pages of version 17 could not be fetched. Disclosed in the plan and in the text of the tasks; the anchor of the link in task 1 (`SQL-SCALAR-SUBQUERIES`) was not confirmed, a quotation seen in a mailing-list message gives `SQL-SYNTAX-SCALAR-SUBQUERIES`. The same for the sections of tasks 3 to 12: version 16 numbers given, 17 not seen |
 | T2 | First message of the chat: question 3, whether the `seed.sql` in the repository has the two rows of `estimates`, was asked, although `context_06.md`, section 1, says the student attaches the file from the repository and the attached file had the rows. After “look at the screenshot” the tutor asked for another screenshot; the student had to say that the file sent was the repository one. Three messages |
-| T3 | `notes_06.md`, first version of the section on how the tutoring should run (section 6 then, section 11 now): the rules of `notes_05.md`, section 13, were cut down to a shorter list instead of carried over whole. Left out: the `AS` label on every aggregate, the student answers in his own words, the data repeated on request, an item asks only what the task text says, seed formatting is the tutor's job, tasks name the file, table and line. The student asked whether the files match the structure of topic 5; the section was then rewritten in full |
+| T3 | `notes_06.md`, first version of the section on how the tutoring should run (section 6 then, section 12 now): the rules of `notes_05.md`, section 13, were cut down to a shorter list instead of carried over whole. Left out: the `AS` label on every aggregate, the student answers in his own words, the data repeated on request, an item asks only what the task text says, seed formatting is the tutor's job, tasks name the file, table and line. The student asked whether the files match the structure of topic 5; the section was then rewritten in full |
 | T4 | Task 4, “Short, by the text of the documentation”: only the condition of true (only unequal rows found) was given, with no definition of “unequal rows” and without the results false and NULL. The student could not apply it (“what does unequal rows of the subquery mean???”); the three results were stated only after a long chain of narrowing questions and his request. Same failure as T22 and T23 of topic 5 |
 | T5 | Task 4, item 2 and its follow-up held two questions: the name allowed in the subquery and a reason from rules_04. Only the first was answered. Same shape as T9, T20 and T26 of topic 5 |
 | T6 | Task 4, wrong-answer questions: “what is the `article_no` of material 5 compared with — only the rows with `material_id` = 5, or all 13” was leading and gave the wrong half a place to be chosen; the question about the inverse of `IS NULL` “by analogy” asked for a form that is not in rules_04 (“that is all that is written”) |
