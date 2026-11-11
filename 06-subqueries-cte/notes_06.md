@@ -78,17 +78,25 @@ Sixteen tasks. This is the tutor's estimate, based on about two tasks a step in
 topic 5. Not in the plan: `WITH RECURSIVE` (the schema has no hierarchy), `LATERAL`,
 window functions (topic 7).
  
-**Section numbers of the documentation, not checked.** The pages of version 17 could
-not be fetched in this session: the fetch tool refused the URLs. Numbers come from
-search results.
+**Section numbers of the documentation.** Checked on 2026-11-11 against search results
+for the version 17 pages (the fetch tool refused the pages themselves, so only the
+excerpts of the results were read):
  
-- 7.8, WITH Queries (Common Table Expressions): seen in results for other versions.
-  Subsections 7.8.1 and 7.8.2 are seen; 7.8.3 and 7.8.4 are from memory.
-- Subquery Expressions: 9.23 in versions 15 and 16, 9.24 in version 18. Version 17 not
-  seen; the number 9.24 in `context_06.md` is consistent with that, not confirmed.
-- 4.2.11 Scalar Subqueries, 7.2.1.3 Subqueries, 7.2.1.5 LATERAL: from memory. The
-  anchor `SQL-SCALAR-SUBQUERIES` of 4.2.11 was not confirmed; a mailing-list message
-  quoting the current documentation gives the anchor as `SQL-SYNTAX-SCALAR-SUBQUERIES`.
+- 7.8, WITH Queries (Common Table Expressions): `queries-with.html`; subsections 7.8.1
+  SELECT in WITH, 7.8.2 Recursive Queries, 7.8.3 Common Table Expression
+  Materialization. Confirmed.
+- 9.24, Subquery Expressions: `functions-subquery.html`; 9.24.1 EXISTS, 9.24.2 IN,
+  9.24.3 NOT IN, 9.24.4 ANY/SOME, 9.24.5 ALL, 9.24.6 Single-Row Comparison. Confirmed.
+  Its text for `ALL` agrees with the NULL rule used in step 4.
+- 4.2.11 Scalar Subqueries: page `sql-expressions.html`. Confirmed. The anchor
+  `SQL-SCALAR-SUBQUERIES` (task 1) and `SQL-SYNTAX-SCALAR-SUBQUERIES` (task 15) were
+  **not** confirmed; the page address without an anchor is safe.
+- 7.2.1.3 Subqueries: page `queries-table-expressions.html`. Confirmed. On the version 17
+  page a derived table "may be assigned a table alias name"; on the version 15 page it
+  "must" be. This settles open question 12 for version 17; version 16 not seen.
+- `INSERT`: `sql-insert.html`; the page says it inserts zero or more rows resulting from
+  a query. Confirmed.
+- 7.2.1.5 LATERAL: not looked up, `LATERAL` is not in the plan.
 ---
  
 ## 3. Step 1: scalar subquery
@@ -702,11 +710,86 @@ query; the schema may forbid it by a unique key, not checked.
  
 ---
  
-## 10. Practice
+## 10. Step 8: INSERT ... SELECT
  
-- Sixteen tasks so far, 80 items. Two tasks, 7 and 8, were added at the student's
+Documentation: PostgreSQL 17, `INSERT`, https://www.postgresql.org/docs/17/sql-insert.html
+(page not opened, see section 2). `INSERT INTO t (columns) query` inserts every row the
+query returns, columns by position. A violated constraint in any one row of the query
+cancels the whole command. The tasks were not run on the live database: the student
+predicted the result and the tutor checked the parts that are plain `SELECT`s.
+Tables as in 3 to 9: `suppliers.tax_id` is NULL for suppliers 3 and 6,
+`materials.article_no` is NULL for materials 3 and 7, `supplier_materials` has the
+primary key (`supplier_id`, `material_id`) and `supplier_id` is `NOT NULL`.
+ 
+### 10.1 Task 17: natural keys in scalar subqueries
+ 
+Query given:
+ 
+```sql
+INSERT INTO supplier_materials (supplier_id, material_id, price)
+SELECT (SELECT s.id
+        FROM suppliers AS s
+        WHERE s.tax_id = 'B38567890'),
+       (SELECT m.id
+        FROM materials AS m
+        WHERE m.article_no = 'PAINT-W-15'),
+       4.30;
+```
+ 
+Items:
+ 
+1. The first subquery: 7 (right on the first send).
+2. The second subquery: 10 (right).
+3. A row (7, 10) exists in `supplier_materials`: yes (right).
+4. The command fails on `supplier_materials_pk` (right).
+5. With `'B99999999'`, which is not in `suppliers`: the first subquery gives NULL, a
+   scalar subquery over no rows, and `supplier_id` is `NOT NULL`, so the command fails.
+   The first answer was “adds 1 row” (T17); closed with two questions: the value of the
+   subquery (NULL) and the repeat of the question with the fact that `supplier_id` is
+   `NOT NULL`.
+### 10.2 Task 18: INSERT ... SELECT with CROSS JOIN and NOT EXISTS
+ 
+Query given:
+ 
+```sql
+INSERT INTO supplier_materials (supplier_id, material_id, price)
+SELECT s.id, m.id, 5.00
+FROM suppliers AS s
+CROSS JOIN materials AS m
+WHERE s.tax_id = 'B38567890'
+  AND m.article_no IN ('PAINT-W-15', 'SILIC-CLR', 'GRAV-1220')
+  AND NOT EXISTS (SELECT 1
+                  FROM supplier_materials AS sm
+                  WHERE sm.supplier_id = s.id
+                    AND sm.material_id = m.id);
+```
+ 
+Items:
+ 
+1. Pairs passing the first two conditions: 3 (materials 8, 10, 11), right.
+2. `NOT EXISTS` for (7, 10): false, right (`false` typed with the Russian
+   layout active, E12).
+3. Rows added: 2. The first answer was two options, 2 rows or an error because of
+   `m.id` = 10, leaning to the error (U10, and T18 for the wording of the item). Closed
+   with one question: does the `SELECT` pass the pair (7, 10) to the `INSERT` when its
+   `NOT EXISTS` is false: no. The repeated question was answered right.
+4. `material_id` of the added rows: 8 and 11, right.
+5. With `s.tax_id = NULL`: 0 rows, no error. The first answer was “6 rows” (U11), which
+   is the 2 suppliers with NULL times the 3 materials. Closed with two questions: the
+   value of `s.tax_id = NULL` for `s.id` = 3 (NULL) and the number of rows `WHERE`
+   keeps (0).
+The difference between tasks 17 and 18 for a NULL: in a subquery inside the list of the
+`SELECT` a NULL goes to the column (task 17, an error); in `WHERE` a NULL is not
+`true`, the row is dropped (task 18, nothing added). Not tested: the same on a table
+with a NULL natural key in the source (open question 5).
+ 
+---
+ 
+## 11. Practice
+ 
+- Eighteen tasks, 90 items: all sixteen of the plan and the two added. Two tasks, 7 and 8, were added at the student's
   request after step 2, so steps 1 to 3 hold eight tasks against six planned; step 4
-  holds one task, step 5 three, steps 6 and 7 two each.
+  holds one task, step 5 three, steps 6, 7 and 8 two each.
 - Two pieces of SQL written by the student: the subquery of 4.3, after two
   corrections, and the `GROUP BY` / `HAVING` query of 7.1, right on the first send. In
   the other tasks the query was given and the student predicted the result.
@@ -721,7 +804,7 @@ query; the schema may forbid it by a unique key, not checked.
 - PGExercises: no change since topic 5 (`context_06.md`, 7.4).
 ---
  
-## 11. Open questions
+## 12. Open questions
  
 1. **No migration history in the remote project** (1.3). Decide how the remote is
    updated before the first `supabase db push`. Carried from topic 5.
@@ -738,20 +821,20 @@ query; the schema may forbid it by a unique key, not checked.
 7. **Debts from topic 4, untouched:** no `CHECK` on the dates of `sites`; delivery
    line 7 is dated before the start of its site; no `from_unit_id <>
    materials.unit_id` rule in `material_unit_conversions`.
-8. **Section numbers of the documentation** (2): check each against the page of
-   version 17 before it is cited in a task. Still open after tasks 1 to 16: every
-   section number in tasks 1 to 16 is unchecked.
+8. **Section numbers of the documentation** (2): checked on 2026-11-11 for 4.2.11, 7.2.1.3,
+   7.8, 9.24 and `INSERT`; the anchors inside the pages are not confirmed. Closed except
+   for the anchors.
 9. **`schema-design.md`, doubled marker** (1.5).
 10. **Window functions** are topic 7. `CASE` and `ROLLUP`: place in the course
     unknown. Exercises of PGExercises Aggregates 11 to 22 are for after topic 6, those
     with window functions after topic 7.
 11. **`ANY` and `ALL` with NULL** (6.1). The NULL row of the table was run on
     constant values only, not on a table. Not asked in a task.
-12. **Alias of a subquery in `FROM`** (7.1): optional from version 16 by the
-    descriptions of the changes; check the page of version 17 (7.2.1.3).
+12. **Alias of a subquery in `FROM`** (7.1): closed on 2026-11-11, the version 17 page
+    says the alias may be given; version 16 not seen.
 ---
  
-## 12. How the tutoring should run
+## 13. How the tutoring should run
  
 Carried from topic 4:
  
