@@ -116,5 +116,16 @@ its own answer, the third kind of ambiguity after T13 and T14.
  
 ## Metric
  
-To be given at the end of the topic, as in topic 5: execution discipline, complete
-answers, understanding, recording discipline, out of 10 each.
+Scores out of 10, the tutor's assessment from the log above, not a measurement.
+Topic 6, eighteen tasks, 90 items. E 12, U 11, T 18.
+ 
+| Metric | Score | Why |
+|---|---|---|
+| Execution discipline | 7 | The premise given back as the reason (E1, E9) and a quantity other than the one asked (E2, E6, E10, E11) repeated up to step 5. Steps 6 to 8 held only two small ones (E11, E12). |
+| Complete answers | 7 | An item asking “what and why” was answered by one half in E1, E7, E9 and E10. None in the last steps. |
+| Understanding | 7 | The gap is NULL: U1, U3, U6, U7 and, in a new place, U11 (`= NULL`). The rules were applied correctly in steps 6 and 7; step 8 had two lapses (U10, U11). |
+| Recording discipline | 9 | The student asked for each record, found the lost T section, asked for `rules_06.md` and for the check of the documentation links. |
+ 
+Tutor side: T13 to T18 repeat the failures of topic 5 and of this topic: data not in the
+question (T10, T16, T17), wording that can be read two ways (T13, T14, T18), a rule
+of the file dropped (T15).
