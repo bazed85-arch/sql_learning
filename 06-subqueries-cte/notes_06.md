@@ -634,17 +634,85 @@ tables of the tasks. Sums by site: 15080.00, 9730.00, 13965.00 (7.3).
  
 ---
  
-## 9. Practice
+## 9. Step 7: latest revision for each estimates.number
  
-- Fourteen tasks so far, 70 items. Two tasks, 7 and 8, were added at the student's
+`estimates.number` is the same for all revisions of one estimate; `estimates.revision`
+numbers them. Data: `EST-2025-014` has three rows (`estimates.id` 2, 7, 8, revisions
+1, 2, 3); the other five numbers have one row each. Documentation: 4.2.11 Scalar
+Subqueries (link with anchor `SQL-SYNTAX-SCALAR-SUBQUERIES` given in task 15, page not
+opened) and 7.8 for task 16.
+ 
+### 9.1 Task 15: correlated scalar subquery
+ 
+Query given:
+ 
+```sql
+SELECT e.id AS id,
+       e.number AS number,
+       e.revision AS revision
+FROM estimates AS e
+WHERE e.revision = (SELECT max(e2.revision)
+                    FROM estimates AS e2
+                    WHERE e2.number = e.number)
+ORDER BY e.id;
+```
+ 
+Items, all five right on the first send:
+ 
+1. The subquery for the outer row `e.id` = 2: 3.
+2. The subquery for the outer row `e.id` = 5: 1.
+3. Rows of the whole query: 6 (`estimates.id` 1, 3, 4, 5, 6, 8).
+4. Rows left out: `estimates.id` 2 and 7. Check from the other side: 6 + 2 = 8, the
+   rows of the table.
+5. Without `WHERE e2.number = e.number` the subquery is not correlated, returns 3 (the
+   maximum of the whole table) for every row, and the query returns 1 row (`e.id` = 8).
+### 9.2 Task 16: the same through a CTE and JOIN
+ 
+Query given:
+ 
+```sql
+WITH latest AS (
+    SELECT e2.number AS number,
+           max(e2.revision) AS max_revision
+    FROM estimates AS e2
+    GROUP BY e2.number
+)
+SELECT e.id AS id,
+       e.number AS number,
+       e.revision AS revision
+FROM estimates AS e
+INNER JOIN latest AS l ON l.number = e.number
+                      AND l.max_revision = e.revision
+ORDER BY e.id;
+```
+ 
+Items, all five right on the first send:
+ 
+1. Rows of `latest` alone: 6, one per `estimates.number`.
+2. `latest.max_revision` for `EST-2025-014`: 3.
+3. Rows of `latest` paired with the row `e.id` = 7 by the whole `ON`: 0 (the number
+   matches, 3 against revision 2 does not).
+4. Rows of the whole query: 6, the same as in task 15.
+5. With `ON l.number = e.number` alone: 8 rows. `latest` has one row per number, so
+   nothing is left out and nothing is multiplied.
+Both queries give the same 6 rows. Checked by the tutor on the live database: the
+table of `estimates` as in the tasks (ids 1 to 8). One difference not tested: a tie
+(two rows with the same highest revision for one number) returns both rows in either
+query; the schema may forbid it by a unique key, not checked.
+ 
+---
+ 
+## 10. Practice
+ 
+- Sixteen tasks so far, 80 items. Two tasks, 7 and 8, were added at the student's
   request after step 2, so steps 1 to 3 hold eight tasks against six planned; step 4
-  holds one task, step 5 three, step 6 two.
+  holds one task, step 5 three, steps 6 and 7 two each.
 - Two pieces of SQL written by the student: the subquery of 4.3, after two
   corrections, and the `GROUP BY` / `HAVING` query of 7.1, right on the first send. In
   the other tasks the query was given and the student predicted the result.
-- Predictions checked from the other side: tasks 3, 4, 5, 6, 8, 9, 11, 13, 14 (the number of rows
+- Predictions checked from the other side: tasks 3, 4, 5, 6, 8, 9, 11, 13, 14, 15, 16 (the number of rows
   of the result plus the number of rows left out equals the rows of the table).
-  Tasks 3 to 14 were checked by the tutor on the live database after the student's
+  Tasks 3 to 16 were checked by the tutor on the live database after the student's
   answers.
 - The student asked for a table comparing `NOT IN` and `NOT EXISTS` (5.3), an example
   on a few rows (4.4), the rule as a whole without references to earlier wording, and
@@ -653,12 +721,12 @@ tables of the tasks. Sums by site: 15080.00, 9730.00, 13965.00 (7.3).
 - PGExercises: no change since topic 5 (`context_06.md`, 7.4).
 ---
  
-## 10. Open questions
+## 11. Open questions
  
 1. **No migration history in the remote project** (1.3). Decide how the remote is
    updated before the first `supabase db push`. Carried from topic 5.
 2. **Which revision is in force.** Both queries exist (`notes_05.md`, 9.1 and 9.2);
-   step 7 of this topic rewrites them with a subquery and a CTE. The choice is the
+   step 7 of this topic (9) rewrites the selection with a subquery and a CTE. The choice is the
    student's.
 3. **Plan against catalogue price** needs the unit conversion tables. Carried.
 4. **Plan and fact for a site in one result, without multiplying rows.** Closed in
@@ -671,8 +739,8 @@ tables of the tasks. Sums by site: 15080.00, 9730.00, 13965.00 (7.3).
    line 7 is dated before the start of its site; no `from_unit_id <>
    materials.unit_id` rule in `material_unit_conversions`.
 8. **Section numbers of the documentation** (2): check each against the page of
-   version 17 before it is cited in a task. Still open after tasks 1 to 14: every
-   section number in tasks 1 to 14 is unchecked.
+   version 17 before it is cited in a task. Still open after tasks 1 to 16: every
+   section number in tasks 1 to 16 is unchecked.
 9. **`schema-design.md`, doubled marker** (1.5).
 10. **Window functions** are topic 7. `CASE` and `ROLLUP`: place in the course
     unknown. Exercises of PGExercises Aggregates 11 to 22 are for after topic 6, those
@@ -683,7 +751,7 @@ tables of the tasks. Sums by site: 15080.00, 9730.00, 13965.00 (7.3).
     descriptions of the changes; check the page of version 17 (7.2.1.3).
 ---
  
-## 11. How the tutoring should run
+## 12. How the tutoring should run
  
 Carried from topic 4:
  
