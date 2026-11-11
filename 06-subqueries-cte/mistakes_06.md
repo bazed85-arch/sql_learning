@@ -7,11 +7,11 @@ Kept in two parts, because the two move independently:
 - **U — understanding.** The mechanism itself was wrong.
  
 Records were kept during the session and written at the end of each major step.
-This file covers steps 1 to 7, sixteen tasks (80 items).
+This file covers steps 1 to 8, eighteen tasks (90 items).
  
 ---
  
-## E — execution (11)
+## E — execution (12)
  
 | # | What happened | Note |
 |---|---|---|
@@ -25,8 +25,8 @@ This file covers steps 1 to 7, sixteen tasks (80 items).
 | E8 | Task 7, item 3 — a reason asked for; the clause “WHERE s.id NOT IN” sent | Closed with one question: the number of NULL among the 11 values of `delivery_items.site_id` (0). The last answer was “true” typed with the Russian keyboard layout active (the letters come out as another word), accepted |
 | E9 | Task 11, item 5 — why site 1 stands in one row with `t` and not in six — the premise was given back: “because delivery_items has 6 rows with delivery_items.site_id = 1” | Closed with one narrowing question: the clause of the subquery that makes the 6 rows one: GROUP BY. Same shape as E1 |
 | E10 | Task 11, item 6 — the check from the other side: the sum of `delivered_total` against the sum of which column of which table — “t.delivered_total” (a column of the result itself), then “delivery_items” (no column) | Closed with two narrowing questions: the table the subquery sums, then the column: `delivery_items.total` |
- 
 | E11 | Task 13, item 2 — the question asked for the estimates (`estimates.id`) whose lines make `p.planned_total` of site 1; the answer was the line ids “1,2,3,4” | Accepted: the lines identify estimate 1. The key asked for was `estimates.id`; a different key from the one asked, as E5 and E6 |
+| E12 | Task 18, item 2 — `false` typed with the Russian keyboard layout active | Accepted as `false`, as in E8 |
  
 **Pattern.** E1, E2, E6 and E7 are the failures already in topic 5: the reason
 restated as the premise (E1), a value or a list given instead of the quantity asked
@@ -38,7 +38,7 @@ number of rows of tasks 5 (7), 6 (10) and 8 (0 and 5).
  
 ---
  
-## U — understanding (9)
+## U — understanding (11)
  
 | # | What was wrong | How it was closed |
 |---|---|---|
@@ -51,6 +51,8 @@ number of rows of tasks 5 (7), 6 (10) and 8 (0 and 5).
 | U7 | Task 8, item 2: `NOT IN` for `suppliers.id` = 2 given as false (right: NULL) | The tutor said false needs an equal value; the student: none among B38123456 and NULL; so NULL. Same family as U1 and U6: NULL in the subquery |
 | U8 | Task 8, item 1: `s2.id IN (1, 3)` read as “a range of IDs” | A list of two values, 1 and 3; 2 is not in it. The student then answered item 1 correctly. The rule of no ranges in rules and notes concerned the data given by the tutor, not the student's reading of SQL |
 | U9 | Task 9, item 5: `> ANY` over the short subquery — the number of rows given as 8 (right: 9). The student: “but rows 10 and 11 are in the where conditions” — rows 10 and 11 were taken as left out because they stand in the `WHERE` of the subquery | The condition `di2.site_id = 2` filters `di2` only; the outer query reads all 11 rows of `di`. The tutor said so (a fact about the scope of the condition, not the answer), then one question: `ANY` for `delivery_items.id` = 11 → true. Then 9 and the check 9 + 2 = 11 |
+| U10 | Task 18, item 3: “2 rows, or an error because of `m.id` = 10, I lean to the error” — the row failing `NOT EXISTS` taken as one the `INSERT` still receives | Closed with one question: does the `SELECT` pass the pair (7, 10) to the `INSERT` when `NOT EXISTS` is false — no. The wording of the item is T18 |
+| U11 | Task 18, item 5: with `s.tax_id = NULL` the number of rows added given as 6 (right: 0) — the NULL tax ids of suppliers 3 and 6 times the 3 materials | Closed with two questions: the value of `s.tax_id = NULL` for `s.id` = 3 (NULL) and the number of rows `WHERE` keeps (0). The `= NULL` trap is the same family as U1, U6, U7 (NULL is not equal to anything) |
  
 **Pattern.** U1, U2, U3, U6 and U7 are one gap: a NULL among the values of a
 subquery under `NOT IN`. The student first took it as “false” or as “NULL decides at
@@ -62,11 +64,14 @@ gives one result per outer row. U5 is a regression of the same family: `NOT` ove
 result that is true or false only. U9 is a new place for the scope of a condition: the
 `WHERE` of a subquery taken for a filter of the outer rows. Tasks 9 (items 1 to 4, 6, 7)
 and 10 (items 1 to 4) were otherwise right on the first send, and the `GROUP BY` /
-`HAVING` query of task 10 was run by the tutor and equals the query given.
+`HAVING` query of task 10 was run by the tutor and equals the query given. U10 and U11
+(task 18) are new places for old gaps: where a failing condition acts (before the
+`INSERT`, not in it) and `= NULL` in `WHERE`. Tasks 13 to 17 had no other wrong
+answer; U-type answers in step 8 came only in task 18.
  
 ---
  
-## T — tutor (16)
+## T — tutor (18)
  
 | # | What was wrong |
 |---|---|
@@ -80,13 +85,14 @@ and 10 (items 1 to 4) were otherwise right on the first send, and the `GROUP BY`
 | T8 | Task 4: the second result of `NOT IN` was worded “no equal value, but a row with NULL is present” (NULL in the subquery), and the answer “3” was accepted for `materials.id` = 3, where the subquery has 6 values without NULL and NULL stands on the left. The wording and the accepted answer disagreed; the student found it. The rule was rewritten in full without numbers of cases |
 | T9 | Task 5: `SELECT 1` used without a definition; the student: “what does SELECT 1 mean” |
 | T10 | Task 6, check of the claim “any NULL gives NULL” on `materials.id` = 1: the question gave no data, the student: “I don't have the tables in front of me”. The rule that data is repeated on request was kept, but the data belonged in the question |
-| T11 | Task 10, “Short, by the text of the documentation”: the statement that the alias of a subquery in `FROM` is optional from version 16 comes from descriptions of changes in search results, not from the page of version 17. Said in the task as “by the description of the changes”, the page was not opened |
+| T11 | Task 10, “Short, by the text of the documentation”: the statement that the alias of a subquery in `FROM` is optional from version 16 comes from descriptions of changes in search results, not from the page of version 17. Said in the task as “by the description of the changes”, the page was not opened. Later the version 17 page showed the alias is optional there, so the claim held for 17 |
 | T12 | Task 9, “Short, by the text of the documentation”: the results of `ANY` and `ALL` given without the NULL row (no true and a NULL gives NULL for `ANY`; no false and a NULL gives NULL for `ALL`). The documentation of version 8 has it; the same kind of cut as T4. Found while writing the notes; the NULL rows were run on constant values afterwards |
 | T13 | Task 12, item 3: “how many rows does the whole query return” could be read as the query of the task, a subquery, or the outer `SELECT` alone. The student answered with a pasted block, one `LEFT OUTER JOIN` with `p`, and “this one?”; the tutor guessed his meaning and asked a narrowing question about `sites`; the student then asked which query was meant and asked that an answer to another reading not be written as his error. Rewritten as “the query given in the task as a whole, from `SELECT s.id AS id` to `ORDER BY s.id;`”. Recorded here, not in E. Same failure as T3, T7, T11, T12 and T18 of topic 5 |
 | T14 | Task 11, item 6: “the sum of `delivered_total` over the 6 rows must match the sum of which column of which table” did not say which tables count. The student: “do we consider only the tables of this task, or all tables and all previous tasks?”. Answered: only the tables of the task |
- 
 | T15 | Task 13: the task text had no documentation link, only the section name and number. The rule (one documentation link plus a summary) was kept in tasks 1 to 12. The student asked for the link in the task text and for the task to be repeated; the link was added and marked unopened |
 | T16 | Task 13, item 2: no data in the message. The question named “the lines of `estimate_items` of which estimates” and the data held only which estimates have lines. The student: “give the table estimate_items”. Same as T10; the table was then sent |
+| T17 | Task 17, item 5: the task did not say that `supplier_materials.supplier_id` is `NOT NULL`; the student answered “adds 1 row”, a reasonable answer without that fact. It was given only after two narrowing questions. Same as T10 and T16: data needed for the answer not in the message. Not recorded as the student's error 
+| T18 | Task 18, item 3: “how many rows will be added, and it will not end with an error?” — the item stated the answer to half of its own question and asked for one number. The student gave two options and asked what to do; the item was rewritten as “rows (how many) or an error”. Recorded here, not in U10's cause |
  
 **Pattern.** T1 is the kind already recorded as T17 and T19 of topic 5: a source
 named with more certainty than was checked, disclosed in the text. T2 is a question
@@ -102,7 +108,9 @@ rule cut short in the summary. T13 and T14 are the old failure of a phrase or a 
 that can be read two ways (“the whole query”, which tables); the student pointed out
 both, and in T13 asked that the ambiguity be counted against the tutor. T15 is a rule
 of the file (a link in the task text) dropped; T16 repeats T10, data not in the
-question, and the student again had to ask for it.
+question, and the student again had to ask for it. T17 is the same third time, with a
+constraint (`NOT NULL`) missing from the data; T18 is a question that stated half of
+its own answer, the third kind of ambiguity after T13 and T14.
  
 ---
  
